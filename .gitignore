@@ -1,0 +1,39 @@
+# Build
+build/
+cmake-build-*/
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# ML
+*.pt
+*.pth
+*.onnx
+checkpoints/
+models/
+
+# Data
+data/
+*.csv
+*.jsonl
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
