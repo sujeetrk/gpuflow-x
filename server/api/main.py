@@ -3,6 +3,7 @@ import threading
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from core.telemetry.aggregator import MetricsAggregator
+from ai.workload_predictor.predictor import WorkloadPredictor
 
 from core.queue.request import InferenceRequest
 from core.scheduler.batch_scheduler import DynamicBatchScheduler
@@ -25,6 +26,7 @@ scheduler = DynamicBatchScheduler(
     inference_service=inference_service,
     max_queue_size=100
 )
+workload_predictor = WorkloadPredictor()
 
 
 # Store requests for status tracking
@@ -126,4 +128,23 @@ def get_metrics():
     return {
         "scheduler": scheduler.metrics(),
         "performance": aggregator.calculate(),
+    }
+
+@app.get("/predict/workload")
+def predict_workload(
+    queue_time_ms: float,
+    inference_time_ms: float,
+    total_latency_ms: float,
+    batch_size: int,
+):
+    prediction = workload_predictor.predict(
+        queue_time_ms=queue_time_ms,
+        inference_time_ms=inference_time_ms,
+        total_latency_ms=total_latency_ms,
+        batch_size=batch_size,
+    )
+
+    return {
+        "predicted_next_latency_ms": prediction,
+        "model": "RandomForestRegressor",
     }

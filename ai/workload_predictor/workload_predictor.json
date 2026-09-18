@@ -1,0 +1,15 @@
+{
+    "model": "RandomForestRegressor",
+    "training_samples": 159,
+    "test_samples": 40,
+    "mae_ms": 0.061876606756243555,
+    "rmse_ms": 0.16985130978482854,
+    "r2": 0.9847404264836941,
+    "features": [
+        "queue_time_ms",
+        "inference_time_ms",
+        "total_latency_ms",
+        "batch_size"
+    ],
+    "target": "next_latency_ms"
+}
