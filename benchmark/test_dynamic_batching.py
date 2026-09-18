@@ -1,4 +1,3 @@
-import threading
 import time
 
 from core.queue.request import InferenceRequest
@@ -7,7 +6,7 @@ from core.batching.batch_config import BatchConfig
 from inference.service import InferenceService
 
 
-def main():
+def test_dynamic_batching_completes_requests():
 
     config = BatchConfig(
         max_batch_size=8,
@@ -26,50 +25,24 @@ def main():
         for i in range(1, 9)
     ]
 
-    threads = []
-
-    start_time = time.perf_counter()
-
     for request in requests:
+        scheduler.submit(request)
 
-        thread = threading.Thread(
-            target=scheduler.submit,
-            args=(request,)
-        )
+    # Wait until all requests complete.
+    deadline = time.perf_counter() + 5
 
-        threads.append(thread)
-        thread.start()
-
-    for thread in threads:
-        thread.join()
-
-    # Allow the worker to finish.
-    time.sleep(1)
-
-    end_time = time.perf_counter()
+    while scheduler.metrics()["requests_completed"] < len(requests):
+        if time.perf_counter() >= deadline:
+            break
+        time.sleep(0.01)
 
     scheduler.stop()
 
     metrics = scheduler.metrics()
 
-    print("\n===== GPUFlow-X Dynamic Batching Benchmark =====")
-
-    print("Requests submitted:", metrics["requests_submitted"])
-    print("Requests completed:", metrics["requests_completed"])
-    print("Requests failed:", metrics["requests_failed"])
-    print("Batches executed:", metrics["batches_executed"])
-    print("Maximum batch size:", metrics["max_batch_size"])
-    print("Maximum batch delay (ms):", metrics["max_batch_delay_ms"])
-    print(
-        "Benchmark runtime (ms):",
-        (end_time - start_time) * 1000
-    )
-
-    print(
-        "Request statuses:",
-        [request.status for request in requests]
-    )
-
-
-if __name__ == "__main__":
-    main()
+    assert metrics["requests_submitted"] == 8
+    assert metrics["requests_completed"] == 8
+    assert metrics["requests_failed"] == 0
+    assert metrics["batches_executed"] >= 1
+    assert metrics["telemetry_events"] == 8
+    assert all(request.status == "completed" for request in requests)

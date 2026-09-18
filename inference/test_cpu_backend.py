@@ -4,7 +4,7 @@ import torch.nn as nn
 from inference.cpu_backend import CPUBackend
 
 
-class TestModel(nn.Module):
+class DummyModel(nn.Module):
 
     def __init__(self):
         super().__init__()
@@ -19,16 +19,17 @@ class TestModel(nn.Module):
         return self.network(x)
 
 
-model = TestModel()
+def test_cpu_backend_prediction():
 
-backend = CPUBackend()
+    model = DummyModel()
+    backend = CPUBackend()
 
-backend.load_model(model)
+    backend.load_model(model)
 
-inputs = torch.randn(1, 10)
+    inputs = torch.randn(1, 10)
 
-result = backend.predict(inputs)
+    result = backend.predict(inputs)
 
-print("Device:", result["device"])
-print("Latency (ms):", result["latency_ms"])
-print("Output shape:", tuple(result["output"].shape))
+    assert result["device"] == "cpu"
+    assert result["latency_ms"] >= 0
+    assert tuple(result["output"].shape) == (1, 2)

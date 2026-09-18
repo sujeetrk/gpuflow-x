@@ -1,0 +1,11 @@
+{
+    "queue_length": 0,
+    "requests_submitted": 100,
+    "requests_completed": 100,
+    "requests_failed": 0,
+    "batches_executed": 13,
+    "max_batch_size": 8,
+    "max_batch_delay_ms": 10.0,
+    "telemetry_events": 100,
+    "runtime_ms": 21.147325000129058
+}

@@ -2,6 +2,7 @@ import threading
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+from core.telemetry.aggregator import MetricsAggregator
 
 from core.queue.request import InferenceRequest
 from core.scheduler.batch_scheduler import DynamicBatchScheduler
@@ -118,5 +119,11 @@ def get_request_status(request_id: str):
 
 @app.get("/metrics")
 def get_metrics():
-    return scheduler.metrics()
+    events = scheduler.telemetry.get_events()
 
+    aggregator = MetricsAggregator(events)
+
+    return {
+        "scheduler": scheduler.metrics(),
+        "performance": aggregator.calculate(),
+    }

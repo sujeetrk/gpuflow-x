@@ -5,23 +5,22 @@ from core.batching.batch_collector import BatchCollector
 from core.batching.batch_config import BatchConfig
 from core.queue.request import InferenceRequest
 from core.queue.request_queue import RequestQueue
+from core.telemetry.collector import TelemetryCollector
+from core.telemetry.event import TelemetryEvent
 from inference.service import InferenceService
 
 
 class DynamicBatchScheduler:
     """
-    Dynamic batching scheduler.
-
-    Collects requests from the FIFO queue and executes
-    them together when either the maximum batch size
-    or maximum batch delay is reached.
+    Dynamic batching scheduler with telemetry collection.
     """
 
     def __init__(
         self,
         inference_service: InferenceService,
         batch_config: Optional[BatchConfig] = None,
-        max_queue_size: int = 100
+        max_queue_size: int = 100,
+        telemetry: Optional[TelemetryCollector] = None
     ):
         self.inference_service = inference_service
 
@@ -39,6 +38,12 @@ class DynamicBatchScheduler:
             queue=self.queue,
             max_batch_size=self.batch_config.max_batch_size,
             max_batch_delay_ms=self.batch_config.max_batch_delay_ms
+        )
+
+        self.telemetry = (
+            telemetry
+            if telemetry is not None
+            else TelemetryCollector()
         )
 
         self._running = False
@@ -87,6 +92,29 @@ class DynamicBatchScheduler:
 
         return request.request_id
 
+    def _record_telemetry(
+        self,
+        request: InferenceRequest,
+        batch_size: int
+    ) -> None:
+        """Create and store telemetry for a request."""
+
+        event = TelemetryEvent(
+            request_id=request.request_id,
+            arrival_time=request.arrival_time,
+            enqueue_time=request.enqueue_time,
+            start_time=request.start_time,
+            end_time=request.end_time,
+            queue_time_ms=request.queue_time_ms,
+            inference_time_ms=request.inference_time_ms,
+            total_latency_ms=request.total_latency_ms,
+            batch_size=batch_size,
+            status=request.status,
+            device="cpu"
+        )
+
+        self.telemetry.record(event)
+
     def _worker_loop(self) -> None:
         """Collect and execute dynamic batches."""
 
@@ -98,31 +126,40 @@ class DynamicBatchScheduler:
                 continue
 
             try:
-                # Mark all requests as processing.
                 for request in batch.requests:
                     request.mark_started()
 
-                # Execute the complete batch.
-                result = self.inference_service.infer_batch_object(
+                self.inference_service.infer_batch_object(
                     batch
                 )
 
-                # Calculate timing for each request.
                 for request in batch.requests:
                     request.mark_completed()
+
+                    self._record_telemetry(
+                        request,
+                        batch.size
+                    )
 
                 with self._metrics_lock:
                     self._completed += batch.size
                     self._batches_executed += 1
 
             except Exception:
+
                 for request in batch.requests:
                     request.mark_failed()
+
+                    self._record_telemetry(
+                        request,
+                        batch.size
+                    )
 
                 with self._metrics_lock:
                     self._failed += batch.size
 
             finally:
+
                 for _ in batch.requests:
                     self.queue.task_done()
 
@@ -146,5 +183,8 @@ class DynamicBatchScheduler:
                 ),
                 "max_batch_delay_ms": (
                     self.batch_config.max_batch_delay_ms
+                ),
+                "telemetry_events": (
+                    self.telemetry.count()
                 )
             }
