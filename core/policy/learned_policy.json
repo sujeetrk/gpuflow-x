@@ -1,0 +1,310 @@
+{
+  "epsilon": 0.18092209605492351,
+  "epsilon_decay": 0.995,
+  "min_epsilon": 0.05,
+  "total_updates": 20,
+  "values": [
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 20,
+      "value": 1.5050121618747354
+    },
+    {
+      "context": [
+        0,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "value": -0.30426494265627047
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "value": 1.5217085700002826
+    },
+    {
+      "context": [
+        2,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        2
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "value": -1.9478883309468529
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        2
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "value": 1.5043578312495327
+    },
+    {
+      "context": [
+        2,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "value": 1.236229168021006
+    },
+    {
+      "context": [
+        2,
+        2,
+        1
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "value": 1.2731202574998803
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "value": 1.2495210070236864
+    },
+    {
+      "context": [
+        0,
+        2,
+        2
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "value": 1.4569429762497605
+    },
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "value": 1.525421892500401
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 10,
+      "value": 1.5776083606249187
+    }
+  ],
+  "counts": [
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 20,
+      "count": 2
+    },
+    {
+      "context": [
+        0,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "count": 2
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        2
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        2
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "count": 3
+    },
+    {
+      "context": [
+        2,
+        2,
+        1
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        0,
+        2,
+        2
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "count": 2
+    },
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 10,
+      "count": 1
+    }
+  ]
+}

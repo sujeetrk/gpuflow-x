@@ -3,12 +3,18 @@ import time
 
 from core.batching.batch_collector import BatchCollector
 from core.batching.batch_config import BatchConfig
+
 from core.policy.ai_policy import AIPolicy
+from core.policy.learning_agent import LearningAgent
+from core.policy.policy_storage import PolicyStorage
 from core.policy.state import WorkloadState
+
 from core.queue.request import InferenceRequest
 from core.queue.request_queue import RequestQueue
+
 from core.telemetry.collector import TelemetryCollector
 from core.telemetry.event import TelemetryEvent
+
 from inference.service import InferenceService
 
 
@@ -20,12 +26,34 @@ class AIScheduler:
         policy: AIPolicy | None = None,
         batch_config: BatchConfig | None = None,
         max_queue_size: int = 100,
+        learning_enabled: bool = True,
+        policy_path: str = "core/policy/learned_policy.json",
     ):
-        self.inference_service = inference_service
-        self.policy = policy or AIPolicy()
-        self.queue = RequestQueue(max_size=max_queue_size)
 
-        self.batch_config = batch_config or BatchConfig()
+        self.inference_service = inference_service
+
+        self.policy = policy or AIPolicy()
+
+        self.learning_agent = LearningAgent()
+
+        self.policy_storage = PolicyStorage(
+            policy_path
+        )
+
+        if learning_enabled:
+            self.policy_storage.load(
+                self.learning_agent.policy
+            )
+
+        self.learning_enabled = learning_enabled
+
+        self.queue = RequestQueue(
+            max_size=max_queue_size
+        )
+
+        self.batch_config = (
+            batch_config or BatchConfig()
+        )
 
         self.collector = BatchCollector(
             queue=self.queue,
@@ -44,9 +72,12 @@ class AIScheduler:
         self._batches_executed = 0
 
         self._metrics_lock = threading.Lock()
+
         self._last_decision = None
+        self._last_reward = None
 
     def start(self):
+
         if self._running:
             return
 
@@ -60,12 +91,23 @@ class AIScheduler:
         self._worker.start()
 
     def stop(self):
+
         self._running = False
 
         if self._worker is not None:
             self._worker.join(timeout=5)
 
-    def submit(self, request: InferenceRequest):
+        if self.learning_enabled:
+
+            self.policy_storage.save(
+                self.learning_agent.policy
+            )
+
+    def submit(
+        self,
+        request: InferenceRequest,
+    ):
+
         self.queue.enqueue(request)
 
         with self._metrics_lock:
@@ -74,6 +116,7 @@ class AIScheduler:
         return request.request_id
 
     def _build_state(self):
+
         events = self.telemetry.get_events()
 
         completed = [
@@ -120,7 +163,9 @@ class AIScheduler:
                 else 0.0
             )
 
-            sorted_latencies = sorted(latencies)
+            sorted_latencies = sorted(
+                latencies
+            )
 
             p95_index = max(
                 0,
@@ -139,13 +184,17 @@ class AIScheduler:
             ]
 
             elapsed = max(
-                time.perf_counter() - min(arrival_times),
+                time.perf_counter()
+                - min(arrival_times),
                 0.001,
             )
 
-            arrival_rate = len(completed) / elapsed
+            arrival_rate = (
+                len(completed) / elapsed
+            )
 
         else:
+
             average_latency = 0.0
             average_queue_time = 0.0
             average_inference_time = 0.0
@@ -159,32 +208,103 @@ class AIScheduler:
             vram_utilization=0.0,
             average_latency_ms=average_latency,
             p95_latency_ms=p95_latency,
-            current_batch_size=self.batch_config.max_batch_size,
-            current_batch_delay_ms=self.batch_config.max_batch_delay_ms,
-            average_queue_time_ms=average_queue_time,
-            average_inference_time_ms=average_inference_time,
+            current_batch_size=(
+                self.batch_config.max_batch_size
+            ),
+            current_batch_delay_ms=(
+                self.batch_config.max_batch_delay_ms
+            ),
+            average_queue_time_ms=(
+                average_queue_time
+            ),
+            average_inference_time_ms=(
+                average_inference_time
+            ),
         )
 
     def _apply_policy(self):
+
         state = self._build_state()
 
-        decision = self.policy.decide(state)
+        # Existing AI latency prediction policy.
+        base_decision = self.policy.decide(
+            state
+        )
 
-        self.batch_config.max_batch_size = decision["batch_size"]
+        predicted_latency = base_decision[
+            "predicted_latency_ms"
+        ]
+
+        # Self-learning policy chooses the actual action.
+        if self.learning_enabled:
+
+            action = (
+                self.learning_agent.choose_action(
+                    queue_length=state.queue_length,
+                    predicted_latency_ms=predicted_latency,
+                    current_batch_size=(
+                        state.current_batch_size
+                    ),
+                )
+            )
+
+            decision = dict(
+                base_decision
+            )
+
+            decision["batch_size"] = (
+                action.batch_size
+            )
+
+            decision["batch_delay_ms"] = (
+                action.batch_delay_ms
+            )
+
+            decision["learning_enabled"] = True
+
+            decision["learning_action"] = {
+                "batch_size": action.batch_size,
+                "batch_delay_ms": (
+                    action.batch_delay_ms
+                ),
+            }
+
+        else:
+
+            decision = dict(
+                base_decision
+            )
+
+            decision[
+                "learning_enabled"
+            ] = False
+
+        self.batch_config.max_batch_size = (
+            decision["batch_size"]
+        )
+
         self.batch_config.max_batch_delay_ms = (
             decision["batch_delay_ms"]
         )
 
-        self.collector.max_batch_size = decision["batch_size"]
+        self.collector.max_batch_size = (
+            decision["batch_size"]
+        )
+
         self.collector.max_batch_delay_ms = (
             decision["batch_delay_ms"]
         )
 
         self._last_decision = decision
 
-        return decision
+        return state, decision
 
-    def _record_telemetry(self, request, batch_size):
+    def _record_telemetry(
+        self,
+        request,
+        batch_size,
+    ):
+
         event = TelemetryEvent(
             request_id=request.request_id,
             arrival_time=request.arrival_time,
@@ -201,25 +321,143 @@ class AIScheduler:
 
         self.telemetry.record(event)
 
+    def _learn_from_batch(
+        self,
+        state,
+        decision,
+        batch_runtime_ms,
+    ):
+
+        if not self.learning_enabled:
+            return None
+
+        learning_action_data = decision.get(
+            "learning_action"
+        )
+
+        if learning_action_data is None:
+            return None
+
+        from core.policy.self_learning import (
+            SchedulingAction,
+        )
+
+        action = SchedulingAction(
+            batch_size=learning_action_data[
+                "batch_size"
+            ],
+            batch_delay_ms=learning_action_data[
+                "batch_delay_ms"
+            ],
+        )
+
+        batch_events = self.telemetry.get_events()
+
+        recent_events = [
+            event
+            for event in batch_events
+            if event.status == "completed"
+            and event.batch_size == action.batch_size
+        ]
+
+        if not recent_events:
+            recent_events = [
+                event
+                for event in batch_events
+                if event.status == "completed"
+            ]
+
+        if not recent_events:
+            return None
+
+        recent_latencies = [
+            event.total_latency_ms
+            for event in recent_events
+            if event.total_latency_ms is not None
+        ]
+
+        recent_queue_times = [
+            event.queue_time_ms
+            for event in recent_events
+            if event.queue_time_ms is not None
+        ]
+
+        average_latency = (
+            sum(recent_latencies)
+            / len(recent_latencies)
+            if recent_latencies
+            else 0.0
+        )
+
+        average_queue_time = (
+            sum(recent_queue_times)
+            / len(recent_queue_times)
+            if recent_queue_times
+            else 0.0
+        )
+
+        completed_count = len(
+            recent_events
+        )
+
+        throughput = (
+            completed_count
+            / max(batch_runtime_ms / 1000.0, 0.001)
+        )
+
+        reward = self.learning_agent.learn(
+            queue_length=state.queue_length,
+            predicted_latency_ms=(
+                decision[
+                    "predicted_latency_ms"
+                ]
+            ),
+            current_batch_size=(
+                state.current_batch_size
+            ),
+            action=action,
+            average_latency_ms=average_latency,
+            average_queue_time_ms=average_queue_time,
+            throughput_requests_per_sec=throughput,
+        )
+
+        self._last_reward = reward
+
+        self.policy_storage.save(
+            self.learning_agent.policy
+        )
+
+        return reward
+
     def _worker_loop(self):
 
         while self._running:
 
-            # First wait for actual work.
             batch = self.collector.collect()
 
             if batch is None:
                 continue
 
-            # Make one AI decision for this batch.
-            self._apply_policy()
+            state, decision = (
+                self._apply_policy()
+            )
+
+            batch_start = time.perf_counter()
 
             try:
 
                 for request in batch.requests:
                     request.mark_started()
 
-                self.inference_service.infer_batch_object(batch)
+                self.inference_service.infer_batch_object(
+                    batch
+                )
+
+                batch_end = time.perf_counter()
+
+                batch_runtime_ms = (
+                    batch_end - batch_start
+                ) * 1000
 
                 for request in batch.requests:
 
@@ -231,8 +469,18 @@ class AIScheduler:
                     )
 
                 with self._metrics_lock:
-                    self._completed += batch.size
+
+                    self._completed += (
+                        batch.size
+                    )
+
                     self._batches_executed += 1
+
+                self._learn_from_batch(
+                    state=state,
+                    decision=decision,
+                    batch_runtime_ms=batch_runtime_ms,
+                )
 
             except Exception:
 
@@ -246,7 +494,10 @@ class AIScheduler:
                     )
 
                 with self._metrics_lock:
-                    self._failed += batch.size
+
+                    self._failed += (
+                        batch.size
+                    )
 
             finally:
 
@@ -257,16 +508,40 @@ class AIScheduler:
 
         with self._metrics_lock:
 
+            learning_stats = (
+                self.learning_agent.statistics()
+                if self.learning_enabled
+                else {}
+            )
+
             return {
                 "queue_length": self.queue.size(),
-                "requests_submitted": self._submitted,
-                "requests_completed": self._completed,
-                "requests_failed": self._failed,
-                "batches_executed": self._batches_executed,
-                "max_batch_size": self.batch_config.max_batch_size,
+                "requests_submitted": (
+                    self._submitted
+                ),
+                "requests_completed": (
+                    self._completed
+                ),
+                "requests_failed": (
+                    self._failed
+                ),
+                "batches_executed": (
+                    self._batches_executed
+                ),
+                "max_batch_size": (
+                    self.batch_config.max_batch_size
+                ),
                 "max_batch_delay_ms": (
                     self.batch_config.max_batch_delay_ms
                 ),
-                "telemetry_events": self.telemetry.count(),
-                "last_ai_decision": self._last_decision,
+                "telemetry_events": (
+                    self.telemetry.count()
+                ),
+                "last_ai_decision": (
+                    self._last_decision
+                ),
+                "last_reward": (
+                    self._last_reward
+                ),
+                "learning": learning_stats,
             }
