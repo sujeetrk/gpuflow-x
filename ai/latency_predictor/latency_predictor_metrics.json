@@ -1,0 +1,13 @@
+{
+  "training_samples": 120,
+  "test_samples": 40,
+  "mae_ms": 0.3345273262187398,
+  "rmse_ms": 0.514406406927577,
+  "r2": 0.7376408190038928,
+  "features": [
+    "configured_batch_size",
+    "batch_delay_ms",
+    "request_count"
+  ],
+  "target": "average_latency_ms"
+}
