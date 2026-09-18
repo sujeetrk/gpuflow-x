@@ -1,4 +1,10 @@
-# Build
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.env
+
+# C++ / CMake
 build/
 cmake-build-*/
 *.o
@@ -7,12 +13,9 @@ cmake-build-*/
 *.dll
 *.exe
 
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.env
+# CUDA
+*.cubin
+*.ptx
 
 # ML
 *.pt

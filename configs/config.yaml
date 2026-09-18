@@ -1,0 +1,39 @@
+project:
+  name: GPUFlow-X
+  version: 0.1.0
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+scheduler:
+  policy: fifo
+  max_batch_size: 8
+  max_queue_delay_ms: 10
+
+sla:
+  p95_latency_ms: 200
+  p99_latency_ms: 300
+
+telemetry:
+  enabled: true
+  interval_ms: 100project:
+  name: GPUFlow-X
+  version: 0.1.0
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+scheduler:
+  policy: fifo
+  max_batch_size: 8
+  max_queue_delay_ms: 10
+
+sla:
+  p95_latency_ms: 200
+  p99_latency_ms: 300
+
+telemetry:
+  enabled: true
+  interval_ms: 100
