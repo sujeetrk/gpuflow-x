@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from core.queue.request import InferenceRequest
-from core.scheduler.fifo_scheduler import FIFOScheduler
+from core.scheduler.batch_scheduler import DynamicBatchScheduler
 from inference.service import InferenceService
 
 
@@ -19,14 +19,14 @@ app = FastAPI(
 inference_service = InferenceService()
 
 
-# Create FIFO scheduler
-scheduler = FIFOScheduler(
+# Create dynamic batch scheduler
+scheduler = DynamicBatchScheduler(
     inference_service=inference_service,
     max_queue_size=100
 )
 
 
-# Store requests so their status can be queried
+# Store requests for status tracking
 request_store = {}
 
 request_store_lock = threading.Lock()
@@ -55,7 +55,7 @@ def root():
     return {
         "project": "GPUFlow-X",
         "status": "running",
-        "phase": "Phase 2 - Request Queue + FIFO Scheduler"
+        "phase": "Phase 3 - Dynamic Batching"
     }
 
 
@@ -70,21 +70,17 @@ def health():
 @app.post("/infer")
 def infer(request: InferenceAPIRequest):
 
-    # Create scheduler request
     inference_request = InferenceRequest(
         values=request.values
     )
 
-    # Submit request to FIFO scheduler
     request_id = scheduler.submit(
         inference_request
     )
 
-    # Store request for status tracking
     with request_store_lock:
         request_store[request_id] = inference_request
 
-    # Return immediately instead of waiting for inference
     return {
         "request_id": request_id,
         "status": inference_request.status,
@@ -95,7 +91,6 @@ def infer(request: InferenceAPIRequest):
 @app.get("/requests/{request_id}")
 def get_request_status(request_id: str):
 
-    # Find request
     with request_store_lock:
         inference_request = request_store.get(
             request_id
@@ -115,12 +110,13 @@ def get_request_status(request_id: str):
         "total_latency_ms": inference_request.total_latency_ms
     }
 
-    # Add device after completion
     if inference_request.status == "completed":
         response["device"] = "cpu"
 
     return response
 
+
 @app.get("/metrics")
 def get_metrics():
     return scheduler.metrics()
+
