@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+import threading
+
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from core.queue.request import InferenceRequest
+from core.scheduler.fifo_scheduler import FIFOScheduler
 from inference.service import InferenceService
 
 
@@ -10,19 +14,40 @@ app = FastAPI(
     version="0.1.0"
 )
 
+
+# Create inference service
 inference_service = InferenceService()
 
 
-class InferenceRequest(BaseModel):
-    values: list[float] = Field(..., min_length=10, max_length=10)
+# Create FIFO scheduler
+scheduler = FIFOScheduler(
+    inference_service=inference_service,
+    max_queue_size=100
+)
 
 
-class BatchInferenceRequest(BaseModel):
-    requests: list[InferenceRequest] = Field(
+# Store requests so their status can be queried
+request_store = {}
+
+request_store_lock = threading.Lock()
+
+
+class InferenceAPIRequest(BaseModel):
+    values: list[float] = Field(
         ...,
-        min_length=1,
-        max_length=8
+        min_length=10,
+        max_length=10
     )
+
+
+@app.on_event("startup")
+def startup():
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    scheduler.stop()
 
 
 @app.get("/")
@@ -30,27 +55,72 @@ def root():
     return {
         "project": "GPUFlow-X",
         "status": "running",
-        "phase": "Phase 1 - GPU Inference Engine"
+        "phase": "Phase 2 - Request Queue + FIFO Scheduler"
     }
 
 
 @app.get("/health")
 def health():
     return {
-        "status": "healthy"
+        "status": "healthy",
+        "queue_size": scheduler.queue_size()
     }
 
 
 @app.post("/infer")
-def infer(request: InferenceRequest):
-    return inference_service.infer(request.values)
+def infer(request: InferenceAPIRequest):
+
+    # Create scheduler request
+    inference_request = InferenceRequest(
+        values=request.values
+    )
+
+    # Submit request to FIFO scheduler
+    request_id = scheduler.submit(
+        inference_request
+    )
+
+    # Store request for status tracking
+    with request_store_lock:
+        request_store[request_id] = inference_request
+
+    # Return immediately instead of waiting for inference
+    return {
+        "request_id": request_id,
+        "status": inference_request.status,
+        "queue_size": scheduler.queue_size()
+    }
 
 
-@app.post("/infer/batch")
-def infer_batch(request: BatchInferenceRequest):
-    batch_values = [
-        item.values
-        for item in request.requests
-    ]
+@app.get("/requests/{request_id}")
+def get_request_status(request_id: str):
 
-    return inference_service.infer_batch(batch_values)
+    # Find request
+    with request_store_lock:
+        inference_request = request_store.get(
+            request_id
+        )
+
+    if inference_request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Request not found."
+        )
+
+    response = {
+        "request_id": inference_request.request_id,
+        "status": inference_request.status,
+        "queue_time_ms": inference_request.queue_time_ms,
+        "inference_time_ms": inference_request.inference_time_ms,
+        "total_latency_ms": inference_request.total_latency_ms
+    }
+
+    # Add device after completion
+    if inference_request.status == "completed":
+        response["device"] = "cpu"
+
+    return response
+
+@app.get("/metrics")
+def get_metrics():
+    return scheduler.metrics()
