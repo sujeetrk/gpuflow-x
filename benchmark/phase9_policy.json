@@ -1,0 +1,790 @@
+{
+  "epsilon": 0.07487792862051632,
+  "epsilon_decay": 0.995,
+  "min_epsilon": 0.05,
+  "total_updates": 196,
+  "values": [
+    {
+      "context": [
+        3,
+        2,
+        1
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 20,
+      "value": 1.3008271152081192
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "value": -0.39736755687518444
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "value": -0.07336131285713754
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 10,
+      "value": -0.009030341303401968
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 0,
+      "value": 0.012970621500005497
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 5,
+      "value": 0.005799695550348982
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 20,
+      "value": -0.65648646260411
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 10,
+      "value": -0.2891911487499954
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 20,
+      "value": -0.022577822058818177
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 20,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 0,
+      "value": -0.28919114874999546
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 20,
+      "value": -1.8
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "value": -1.8
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "value": -0.5486987111607177
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "value": -1.8
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 20,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 0,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 0,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "value": -1.8
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 20,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "value": -1.8
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "value": -1.8
+    }
+  ],
+  "counts": [
+    {
+      "context": [
+        3,
+        2,
+        1
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 20,
+      "count": 3
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "count": 4
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "count": 7
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 10,
+      "count": 53
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 0,
+      "count": 5
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 5,
+      "count": 47
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 20,
+      "count": 2
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 10,
+      "count": 2
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 20,
+      "count": 34
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 20,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 0,
+      "count": 6
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 20,
+      "count": 1
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "count": 4
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "count": 2
+    },
+    {
+      "context": [
+        3,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 20,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 20,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 10,
+      "count": 1
+    },
+    {
+      "context": [
+        2,
+        2,
+        0
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 20,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "count": 1
+    }
+  ]
+}

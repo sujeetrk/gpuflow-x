@@ -49,12 +49,16 @@ class LearningAgent:
         average_latency_ms: float,
         average_queue_time_ms: float,
         throughput_requests_per_sec: float,
+        deadline_misses: int = 0,
+        request_count: int = 0,
     ) -> float:
 
         reward = self.reward_model.calculate(
             average_latency_ms=average_latency_ms,
             average_queue_time_ms=average_queue_time_ms,
             throughput_requests_per_sec=throughput_requests_per_sec,
+            deadline_misses=deadline_misses,
+            request_count=request_count,
         )
 
         self.policy.update(

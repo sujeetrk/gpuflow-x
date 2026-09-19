@@ -1,22 +1,28 @@
+
 import threading
+from queue import Queue, Empty
 from typing import Optional
 
 from core.queue.request import InferenceRequest
-from core.queue.request_queue import RequestQueue
 from inference.service import InferenceService
 
 
 class FIFOScheduler:
     """
     Baseline First-In-First-Out inference scheduler.
+
+    Requests are processed in submission order.
+    Priority and deadline metadata do not change FIFO order.
     """
 
     def __init__(
         self,
         inference_service: InferenceService,
-        max_queue_size: int = 100
+        max_queue_size: int = 100,
     ):
-        self.queue = RequestQueue(max_queue_size)
+        # Use a standard FIFO queue, not the Phase 9
+        # priority-aware RequestQueue.
+        self.queue = Queue(maxsize=max_queue_size)
         self.inference_service = inference_service
 
         self._running = False
@@ -38,7 +44,7 @@ class FIFOScheduler:
 
         self._worker = threading.Thread(
             target=self._worker_loop,
-            daemon=True
+            daemon=True,
         )
 
         self._worker.start()
@@ -52,9 +58,10 @@ class FIFOScheduler:
             self._worker.join(timeout=2)
 
     def submit(self, request: InferenceRequest) -> str:
-        """Submit a request to the FIFO queue."""
+        """Submit a request in FIFO order."""
 
-        self.queue.enqueue(request)
+        request.mark_enqueued()
+        self.queue.put(request)
 
         with self._metrics_lock:
             self._submitted += 1
@@ -62,29 +69,23 @@ class FIFOScheduler:
         return request.request_id
 
     def _worker_loop(self) -> None:
-        """Continuously process queued requests."""
+        """Continuously process queued requests in FIFO order."""
 
         while self._running:
-
-            request = self.queue.dequeue(timeout=0.1)
-
-            if request is None:
+            try:
+                request = self.queue.get(timeout=0.1)
+            except Empty:
                 continue
 
             try:
                 request.mark_started()
 
-                result = self.inference_service.infer(
+                self.inference_service.infer(
                     request.values,
-                    request.arrival_time
+                    request.arrival_time,
                 )
 
-                request.end_time = (
-                    request.start_time
-                    + result["inference_time_ms"] / 1000
-                )
-
-                request.status = "completed"
+                request.mark_completed()
 
                 with self._metrics_lock:
                     self._completed += 1
@@ -101,15 +102,15 @@ class FIFOScheduler:
     def queue_size(self) -> int:
         """Return current queue size."""
 
-        return self.queue.size()
+        return self.queue.qsize()
 
     def metrics(self) -> dict:
         """Return scheduler metrics."""
 
         with self._metrics_lock:
             return {
-                "queue_length": self.queue.size(),
+                "queue_length": self.queue.qsize(),
                 "requests_submitted": self._submitted,
                 "requests_completed": self._completed,
-                "requests_failed": self._failed
+                "requests_failed": self._failed,
             }

@@ -1,59 +1,141 @@
+
 import time
+from statistics import mean
 
 from core.batching.batch_config import BatchConfig
 from core.policy.adaptive_policy import AdaptivePolicy
 from core.policy.ai_policy import AIPolicy
+
 from core.queue.request import InferenceRequest
+
+from core.scheduler.fifo_scheduler import FIFOScheduler
 from core.scheduler.adaptive_scheduler import AdaptiveScheduler
 from core.scheduler.ai_scheduler import AIScheduler
+
 from inference.service import InferenceService
 
 
 REQUEST_COUNT = 100
+MAX_WAIT_SECONDS = 30
+
+# Same workload profile for each scheduler.
+SLA_BUDGETS_MS = [50, 100, 250, 500]
 
 
-def run_scheduler(scheduler, requests):
-    start_time = time.perf_counter()
+def create_requests():
+    requests = []
 
+    for i in range(REQUEST_COUNT):
+        sla = SLA_BUDGETS_MS[i % len(SLA_BUDGETS_MS)]
+
+        requests.append(
+            InferenceRequest(
+                values=[(i + j) % 10 for j in range(10)],
+                priority=(i % 5) + 1,
+                sla_budget_ms=sla,
+            )
+        )
+
+    return requests
+
+
+def run_scheduler(name, scheduler, requests):
     scheduler.start()
+    start_time = time.perf_counter()
 
     for request in requests:
         scheduler.submit(request)
 
-    deadline = time.perf_counter() + 15
+    deadline = time.perf_counter() + MAX_WAIT_SECONDS
 
-    while scheduler.metrics()["requests_completed"] < len(requests):
-        if time.perf_counter() >= deadline:
+    while time.perf_counter() < deadline:
+        metrics = scheduler.metrics()
+
+        finished = (
+            metrics["requests_completed"]
+            + metrics["requests_failed"]
+        )
+
+        if finished >= len(requests):
             break
 
-        time.sleep(0.01)
+        time.sleep(0.005)
 
     end_time = time.perf_counter()
-
     scheduler.stop()
 
     metrics = scheduler.metrics()
-    metrics["runtime_ms"] = (end_time - start_time) * 1000
 
-    return metrics
-
-
-def create_requests():
-    return [
-        InferenceRequest(
-            [(i + j) % 10 for j in range(10)]
-        )
-        for i in range(REQUEST_COUNT)
+    completed_requests = [
+        request for request in requests
+        if request.status == "completed"
     ]
+
+    latencies = [
+        request.total_latency_ms
+        for request in completed_requests
+        if request.total_latency_ms is not None
+    ]
+
+    sorted_latencies = sorted(latencies)
+
+    p95_latency = (
+        sorted_latencies[
+            max(0, int(len(sorted_latencies) * 0.95) - 1)
+        ]
+        if sorted_latencies else 0.0
+    )
+
+    runtime_seconds = max(end_time - start_time, 0.001)
+
+    deadline_misses = sum(
+        1 for request in completed_requests
+        if request.deadline_missed
+    )
+
+    results = {
+        "scheduler": name,
+        "submitted": metrics["requests_submitted"],
+        "completed": metrics["requests_completed"],
+        "failed": metrics["requests_failed"],
+        "runtime_ms": runtime_seconds * 1000,
+        "throughput_rps": (
+            metrics["requests_completed"] / runtime_seconds
+        ),
+        "avg_latency_ms": mean(latencies) if latencies else 0.0,
+        "p95_latency_ms": p95_latency,
+        "deadline_misses": deadline_misses,
+        "batches": metrics.get("batches_executed", "N/A"),
+    }
+
+    return results
+
+
+def print_results(results):
+    print(f"\n=== {results['scheduler']} ===")
+    print("Submitted:", results["submitted"])
+    print("Completed:", results["completed"])
+    print("Failed:", results["failed"])
+    print("Runtime (ms):", round(results["runtime_ms"], 2))
+    print("Throughput (req/s):", round(results["throughput_rps"], 2))
+    print("Average latency (ms):", round(results["avg_latency_ms"], 2))
+    print("P95 latency (ms):", round(results["p95_latency_ms"], 2))
+    print("Deadline misses:", results["deadline_misses"])
+    print("Batches:", results["batches"])
 
 
 def main():
+    fifo_scheduler = FIFOScheduler(
+        inference_service=InferenceService(),
+        max_queue_size=REQUEST_COUNT + 20,
+    )
+
     adaptive_scheduler = AdaptiveScheduler(
         inference_service=InferenceService(),
         policy=AdaptivePolicy(),
         batch_config=BatchConfig(
             max_batch_size=4,
-            max_batch_delay_ms=5
+            max_batch_delay_ms=5,
         ),
         max_queue_size=REQUEST_COUNT + 20,
     )
@@ -63,58 +145,52 @@ def main():
         policy=AIPolicy(),
         batch_config=BatchConfig(
             max_batch_size=4,
-            max_batch_delay_ms=5
+            max_batch_delay_ms=5,
         ),
         max_queue_size=REQUEST_COUNT + 20,
+        learning_enabled=False,
+        policy_path="benchmark/phase9_policy.json",
     )
 
-    adaptive_requests = create_requests()
-    ai_requests = create_requests()
+    schedulers = [
+        ("FIFO Scheduler", fifo_scheduler),
+        ("Adaptive Scheduler", adaptive_scheduler),
+        ("AI Priority + SLA Scheduler", ai_scheduler),
+    ]
 
-    adaptive_results = run_scheduler(
-        adaptive_scheduler,
-        adaptive_requests,
-    )
+    all_results = []
 
-    ai_results = run_scheduler(
-        ai_scheduler,
-        ai_requests,
-    )
+    print("GPUFlow-X Phase 9 Scheduler Benchmark")
+    print("Workload:", REQUEST_COUNT, "requests per scheduler")
+    print("SLA budgets (ms):", SLA_BUDGETS_MS)
+    print("Device: CPU")
+    print("Note: Each scheduler receives a fresh equivalent workload.")
 
-    print("=== GPUFlow-X Scheduler Comparison ===")
+    for name, scheduler in schedulers:
+        requests = create_requests()
+        results = run_scheduler(name, scheduler, requests)
+        all_results.append(results)
+        print_results(results)
 
-    print("\nRule-Based Adaptive Scheduler")
-    print("Requests:", adaptive_results["requests_submitted"])
-    print("Completed:", adaptive_results["requests_completed"])
-    print("Failed:", adaptive_results["requests_failed"])
-    print("Batches:", adaptive_results["batches_executed"])
-    print("Runtime (ms):", adaptive_results["runtime_ms"])
+    print("\n=== PHASE 9 COMPARISON SUMMARY ===")
     print(
-        "Final batch size:",
-        adaptive_results["max_batch_size"],
-    )
-    print(
-        "Final batch delay (ms):",
-        adaptive_results["max_batch_delay_ms"],
-    )
-
-    print("\nAI Scheduler")
-    print("Requests:", ai_results["requests_submitted"])
-    print("Completed:", ai_results["requests_completed"])
-    print("Failed:", ai_results["requests_failed"])
-    print("Batches:", ai_results["batches_executed"])
-    print("Runtime (ms):", ai_results["runtime_ms"])
-    print(
-        "Final batch size:",
-        ai_results["max_batch_size"],
-    )
-    print(
-        "Final batch delay (ms):",
-        ai_results["max_batch_delay_ms"],
+        f"{'Scheduler':<28}"
+        f"{'Completed':>10}"
+        f"{'Throughput':>14}"
+        f"{'Avg Latency':>14}"
+        f"{'P95 Latency':>14}"
+        f"{'Misses':>10}"
     )
 
-    print("\nAI Decision:")
-    print(ai_results["last_ai_decision"])
+    for result in all_results:
+        print(
+            f"{result['scheduler']:<28}"
+            f"{result['completed']:>10}"
+            f"{result['throughput_rps']:>14.2f}"
+            f"{result['avg_latency_ms']:>14.2f}"
+            f"{result['p95_latency_ms']:>14.2f}"
+            f"{result['deadline_misses']:>10}"
+        )
 
 
 if __name__ == "__main__":

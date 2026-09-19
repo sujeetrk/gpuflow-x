@@ -1,0 +1,90 @@
+{
+  "epsilon": 0.19407450187125314,
+  "epsilon_decay": 0.995,
+  "min_epsilon": 0.05,
+  "total_updates": 6,
+  "values": [
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 0,
+      "value": 1.4639814171878924
+    },
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "value": 0.7440612366846169
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "value": 0.6342294699997637
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "value": 0.4000749525009269
+    }
+  ],
+  "counts": [
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 0,
+      "count": 2
+    },
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        0,
+        2,
+        0
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 0,
+      "count": 2
+    }
+  ]
+}

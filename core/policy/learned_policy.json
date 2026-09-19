@@ -1,8 +1,8 @@
 {
-  "epsilon": 0.18092209605492351,
+  "epsilon": 0.14805219153934096,
   "epsilon_decay": 0.995,
   "min_epsilon": 0.05,
-  "total_updates": 20,
+  "total_updates": 60,
   "values": [
     {
       "context": [
@@ -12,7 +12,7 @@
       ],
       "batch_size": 8,
       "batch_delay_ms": 20,
-      "value": 1.5050121618747354
+      "value": 1.4663293027678983
     },
     {
       "context": [
@@ -132,7 +132,7 @@
       ],
       "batch_size": 8,
       "batch_delay_ms": 10,
-      "value": 1.4569429762497605
+      "value": 1.3956926312499853
     },
     {
       "context": [
@@ -142,7 +142,7 @@
       ],
       "batch_size": 8,
       "batch_delay_ms": 5,
-      "value": 1.525421892500401
+      "value": 1.4686723132918007
     },
     {
       "context": [
@@ -152,7 +152,47 @@
       ],
       "batch_size": 4,
       "batch_delay_ms": 10,
-      "value": 1.5776083606249187
+      "value": 1.5419313570312416
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 10,
+      "value": 1.5205196324997956
+    },
+    {
+      "context": [
+        0,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "value": 1.3888387975002032
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "value": 1.5244734743748551
+    },
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 5,
+      "value": 1.4470874262501183
     }
   ],
   "counts": [
@@ -164,7 +204,7 @@
       ],
       "batch_size": 8,
       "batch_delay_ms": 20,
-      "count": 2
+      "count": 7
     },
     {
       "context": [
@@ -284,7 +324,7 @@
       ],
       "batch_size": 8,
       "batch_delay_ms": 10,
-      "count": 2
+      "count": 10
     },
     {
       "context": [
@@ -294,7 +334,7 @@
       ],
       "batch_size": 8,
       "batch_delay_ms": 5,
-      "count": 1
+      "count": 15
     },
     {
       "context": [
@@ -304,6 +344,46 @@
       ],
       "batch_size": 4,
       "batch_delay_ms": 10,
+      "count": 8
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 2,
+      "batch_delay_ms": 10,
+      "count": 2
+    },
+    {
+      "context": [
+        0,
+        2,
+        2
+      ],
+      "batch_size": 1,
+      "batch_delay_ms": 5,
+      "count": 2
+    },
+    {
+      "context": [
+        0,
+        2,
+        1
+      ],
+      "batch_size": 8,
+      "batch_delay_ms": 0,
+      "count": 1
+    },
+    {
+      "context": [
+        1,
+        2,
+        1
+      ],
+      "batch_size": 4,
+      "batch_delay_ms": 5,
       "count": 1
     }
   ]
