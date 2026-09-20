@@ -325,8 +325,26 @@ class AIScheduler:
                     decision["deadline_override"] = True
                     decision["ai_reason"] = "deadline_constrained"
 
+        # Preserve the proposal for diagnostics, but only train on it when
+        # the final, safety-clamped action is exactly what was proposed.
+        proposed_action = decision.get("learning_action")
+        decision["proposed_learning_action"] = proposed_action
+
         decision["batch_size"] = max(1, min(decision["batch_size"], cap))
         decision["batch_delay_ms"] = max(0.0, decision["batch_delay_ms"])
+        effective_action = {
+            "batch_size": decision["batch_size"],
+            "batch_delay_ms": decision["batch_delay_ms"],
+        }
+        decision["effective_action"] = effective_action
+
+        if proposed_action is not None:
+            if proposed_action == effective_action:
+                # Store the executed action as the learner's attribution key.
+                decision["learning_action"] = dict(effective_action)
+            else:
+                decision.pop("learning_action", None)
+                decision["learning_skipped_for_action_override"] = True
 
         self.batch_config.max_batch_size = decision["batch_size"]
         self.batch_config.max_batch_delay_ms = decision["batch_delay_ms"]
@@ -462,58 +480,67 @@ class AIScheduler:
         return reward
 
     def _worker_loop(self):
-        """Continuously collect and execute inference batches."""
+        """Collect and execute batches while isolating post-inference errors."""
         while self._running or not self.queue.is_empty():
-
             if self.queue.is_empty():
                 time.sleep(0.01)
                 continue
 
             state, decision = self._apply_policy()
-
             batch = self.collector.collect()
-
             if batch is None:
                 continue
 
             batch_start = time.perf_counter()
 
+            # Only request-starting and inference errors determine whether
+            # inference itself failed. Telemetry/learning are best-effort and
+            # must never reclassify already-completed requests as failed.
             try:
                 for request in batch.requests:
                     request.mark_started()
-
                 self.inference_service.infer_batch_object(batch)
-
-                batch_end = time.perf_counter()
-
-                batch_runtime_ms = (
-                    batch_end - batch_start
-                ) * 1000
-
+            except Exception:
                 for request in batch.requests:
-                    request.mark_completed()
-                    self._record_telemetry(request, batch.size)
+                    if request.status not in ("failed", "completed"):
+                        request.mark_failed()
+                    try:
+                        self._record_telemetry(request, batch.size)
+                    except Exception:
+                        pass
 
                 with self._metrics_lock:
-                    self._completed += batch.size
-                    self._batches_executed += 1
+                    self._failed += sum(
+                        1 for request in batch.requests
+                        if request.status == "failed"
+                    )
+                continue
 
+            batch_runtime_ms = (time.perf_counter() - batch_start) * 1000.0
+            for request in batch.requests:
+                request.mark_completed()
+
+            with self._metrics_lock:
+                self._completed += batch.size
+                self._batches_executed += 1
+
+            for request in batch.requests:
+                try:
+                    self._record_telemetry(request, batch.size)
+                except Exception:
+                    # A telemetry sink failure must not change request status.
+                    continue
+
+            try:
                 self._learn_from_batch(
                     state=state,
                     decision=decision,
                     batch_runtime_ms=batch_runtime_ms,
                     batch_requests=batch.requests,
                 )
-
             except Exception:
-                for request in batch.requests:
-                    if request.status != "failed":
-                        request.mark_failed()
-
-                    self._record_telemetry(request, batch.size)
-
-                with self._metrics_lock:
-                    self._failed += batch.size
+                # Learning/persistence is auxiliary to successful inference.
+                pass
 
     def metrics(self):
         """Return scheduler metrics and most recent AI decision."""

@@ -117,16 +117,20 @@ def test_self_learning_policy_compatible_with_deadline_scheduler(
     _, decision = scheduler._apply_policy()
 
     assert decision["learning_enabled"] is True
-    assert "learning_action" in decision
+    assert "proposed_learning_action" in decision
+    assert "effective_action" in decision
 
     assert 0 < decision["deadline_pressure_ms"] <= 1000.0
     assert decision["batch_size"] == 1
     assert decision["batch_delay_ms"] == 0.0
 
-    action = decision["learning_action"]
-
-    assert action["batch_size"] >= 1
-    assert action["batch_delay_ms"] >= 0
+    proposed = decision["proposed_learning_action"]
+    effective = decision["effective_action"]
+    if proposed == effective:
+        assert decision["learning_action"] == effective
+    else:
+        assert "learning_action" not in decision
+        assert decision["learning_skipped_for_action_override"] is True
 
 
 def test_expired_deadline_drains_using_configured_batch_capacity(tmp_path):

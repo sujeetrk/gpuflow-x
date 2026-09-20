@@ -21,3 +21,8 @@ torch==2.14.0+cpu
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.53.0
+
+# ML model training and serialization
+pandas==3.0.6
+scikit-learn==1.9.1
+joblib==1.6.0
