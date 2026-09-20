@@ -91,3 +91,27 @@ The benchmark uses equivalent freshly-created request workloads and compares FIF
 ## License
 
 MIT
+
+## Phase 10: Multi-GPU Intelligent Scheduler
+
+GPUFlow-X now includes GPU-aware inference placement and load balancing.
+
+### Implemented
+- GPU device discovery through PyTorch CUDA availability.
+- Least-loaded GPU selection with rotating tie-breaking.
+- Per-GPU inference backends and model instances.
+- CPU fallback when no CUDA GPUs are available.
+- Thread-safe assignment tracking and release.
+- Device assignment cleanup after successful or failed inference.
+- Multi-GPU placement and load-balancing tests.
+
+### Validation
+- Device manager and placement tests.
+- Simulated multi-GPU inference service tests.
+- 10,000-request simulated load-balancing benchmark.
+- Full project regression test suite.
+
+Note: Multi-GPU placement tests use simulated devices on CPU-only
+systems. Actual multi-GPU inference performance requires compatible
+NVIDIA GPUs, CUDA, and a suitable PyTorch installation.
+The benchmark measures assignment throughput, not GPU inference speed.
