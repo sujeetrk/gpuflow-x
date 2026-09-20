@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from ai.latency_predictor.predictor import LatencyPredictor
+from ai.ops_copilot.copilot import AIOpsCopilot
 from core.queue.request import InferenceRequest
 from core.scheduler.batch_scheduler import DynamicBatchScheduler
 from inference.service import InferenceService
@@ -28,6 +29,7 @@ scheduler = DynamicBatchScheduler(
 )
 
 latency_predictor = LatencyPredictor()
+ops_copilot = AIOpsCopilot()
 
 request_store = {}
 
@@ -201,4 +203,33 @@ def predict_latency(
         "model": type(
             latency_predictor.model
         ).__name__,
+    }
+
+
+# ---------------------------------------------------------
+# AI Operations Copilot
+# ---------------------------------------------------------
+
+@app.get("/ops/copilot")
+def get_ops_copilot_report():
+    """Explain current scheduler health and observed bottlenecks."""
+    metrics = scheduler.metrics()
+    events = scheduler.telemetry.get_events()
+
+    return ops_copilot.analyze(
+        metrics=metrics,
+        telemetry_events=events,
+    )
+
+
+@app.get("/ops/copilot/decision")
+def get_ops_copilot_decision():
+    """Explain the latest scheduler decision."""
+    metrics = scheduler.metrics()
+
+    return {
+        "decision": metrics.get("last_ai_decision"),
+        "explanation": ops_copilot.explain_decision(
+            metrics.get("last_ai_decision")
+        ),
     }
