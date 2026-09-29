@@ -1,4 +1,5 @@
---extra-index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch==2.14.0+cu126
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
@@ -18,7 +19,6 @@ PyYAML==6.0.3
 setuptools==78.1.0
 starlette==1.6.0
 sympy==1.14.0
-torch==2.14.0+cpu
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.53.0
