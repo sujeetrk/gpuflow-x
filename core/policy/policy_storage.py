@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from core.policy.self_learning import (
@@ -62,16 +64,34 @@ class PolicyStorage:
             exist_ok=True,
         )
 
-        with open(
-            self.path,
-            "w",
-        ) as file:
+        temp_path = None
 
-            json.dump(
-                data,
-                file,
-                indent=2,
-            )
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.path.parent,
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as file:
+                temp_path = Path(file.name)
+
+                json.dump(
+                    data,
+                    file,
+                    indent=2,
+                )
+
+                file.flush()
+                os.fsync(file.fileno())
+
+            os.replace(temp_path, self.path)
+            temp_path = None
+
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
 
     def load(
         self,
@@ -91,6 +111,16 @@ class PolicyStorage:
         policy.epsilon = data.get(
             "epsilon",
             policy.epsilon,
+        )
+
+        policy.epsilon_decay = data.get(
+            "epsilon_decay",
+            policy.epsilon_decay,
+        )
+
+        policy.min_epsilon = data.get(
+            "min_epsilon",
+            policy.min_epsilon,
         )
 
         policy.total_updates = data.get(

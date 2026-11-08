@@ -95,6 +95,10 @@ class AIScheduler:
         self._last_decision = None
         self._last_reward = None
 
+        self._policy_save_successes = 0
+        self._policy_save_failures = 0
+        self._last_policy_save_error = None
+
         # Restore previously learned policy, if available.
         try:
             self.policy_storage.load(self.learning_agent.policy)
@@ -523,8 +527,17 @@ class AIScheduler:
 
         try:
             self.policy_storage.save(self.learning_agent.policy)
-        except (OSError, ValueError, TypeError):
-            pass
+
+            with self._metrics_lock:
+                self._policy_save_successes += 1
+                self._last_policy_save_error = None
+
+        except Exception as exc:
+            with self._metrics_lock:
+                self._policy_save_failures += 1
+                self._last_policy_save_error = (
+                    f"{type(exc).__name__}: {exc}"
+                )
 
         return reward
 
@@ -646,6 +659,9 @@ class AIScheduler:
                 "telemetry_events": self.telemetry.count(),
                 "last_ai_decision": self._last_decision,
                 "last_reward": self._last_reward,
+                "policy_save_successes": self._policy_save_successes,
+                "policy_save_failures": self._policy_save_failures,
+                "last_policy_save_error": self._last_policy_save_error,
                 "learning_statistics": (
                     self.learning_agent.statistics()
                 ),
