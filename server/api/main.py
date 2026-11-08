@@ -1,4 +1,4 @@
-import threading
+from queue import Full
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from ai.latency_predictor.predictor import LatencyPredictor
 from ai.ops_copilot.copilot import AIOpsCopilot
 from core.queue.request import InferenceRequest
-from core.scheduler.batch_scheduler import DynamicBatchScheduler
+from core.scheduler.ai_scheduler import AIScheduler
 from inference.service import InferenceService
 
 
@@ -23,17 +23,15 @@ app = FastAPI(
 
 inference_service = InferenceService()
 
-scheduler = DynamicBatchScheduler(
+scheduler = AIScheduler(
     inference_service=inference_service,
     max_queue_size=100,
+    learning_enabled=True,
 )
 
 latency_predictor = LatencyPredictor()
 ops_copilot = AIOpsCopilot()
 
-request_store = {}
-
-request_store_lock = threading.Lock()
 
 
 # ---------------------------------------------------------
@@ -71,7 +69,7 @@ def root():
     return {
         "project": "GPUFlow-X",
         "status": "running",
-        "phase": "Phase 7 - AI Latency Prediction",
+        "phase": "Production AI Scheduling",
     }
 
 
@@ -83,7 +81,7 @@ def root():
 def health():
     return {
         "status": "healthy",
-        "queue_size": scheduler.queue_size(),
+        "queue_size": scheduler.queue.size(),
     }
 
 
@@ -98,17 +96,18 @@ def infer(request: InferenceAPIRequest):
         values=request.values
     )
 
-    request_id = scheduler.submit(
-        inference_request
-    )
-
-    with request_store_lock:
-        request_store[request_id] = inference_request
+    try:
+        request_id = scheduler.submit(inference_request)
+    except Full:
+        raise HTTPException(
+            status_code=429,
+            detail="Inference queue is full. Retry later.",
+        )
 
     return {
         "request_id": request_id,
         "status": inference_request.status,
-        "queue_size": scheduler.queue_size(),
+        "queue_size": scheduler.queue.size(),
     }
 
 
@@ -119,32 +118,15 @@ def infer(request: InferenceAPIRequest):
 @app.get("/requests/{request_id}")
 def get_request_status(request_id: str):
 
-    with request_store_lock:
+    result = scheduler.get_request(request_id)
 
-        inference_request = request_store.get(
-            request_id
-        )
-
-    if inference_request is None:
-
+    if result is None:
         raise HTTPException(
             status_code=404,
             detail="Request not found.",
         )
 
-    response = {
-        "request_id": inference_request.request_id,
-        "status": inference_request.status,
-        "queue_time_ms": inference_request.queue_time_ms,
-        "inference_time_ms": inference_request.inference_time_ms,
-        "total_latency_ms": inference_request.total_latency_ms,
-    }
-
-    if inference_request.status == "completed":
-
-        response["device"] = "cpu"
-
-    return response
+    return result
 
 
 # ---------------------------------------------------------

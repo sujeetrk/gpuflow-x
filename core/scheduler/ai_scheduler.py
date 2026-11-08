@@ -403,7 +403,7 @@ class AIScheduler:
 
         return state, decision
 
-    def _record_telemetry(self, request, batch_size):
+    def _record_telemetry(self, request, batch_size, device='unknown'):
         """Record request timing and deadline misses."""
         event = TelemetryEvent(
             request_id=request.request_id,
@@ -416,7 +416,7 @@ class AIScheduler:
             total_latency_ms=request.total_latency_ms,
             batch_size=batch_size,
             status=request.status,
-            device="cpu",
+            device=device,
         )
 
         self.telemetry.record(event)
@@ -614,7 +614,11 @@ class AIScheduler:
 
             for request in batch.requests:
                 try:
-                    self._record_telemetry(request, batch.size)
+                    self._record_telemetry(
+                        request,
+                        batch.size,
+                        device=inference_result.get("device") or "unknown",
+                    )
                 except Exception:
                     # A telemetry sink failure must not change request status.
                     continue
