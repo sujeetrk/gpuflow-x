@@ -989,3 +989,210 @@ GPUFlow-X is progressing from an experimental adaptive GPU inference scheduler t
 The focus is not simply to add more algorithms. It is to connect scheduling, prediction, learning, inference execution, resource management, telemetry, and reliability into one coherent system.
 
 **Build incrementally. Measure performance. Validate every integration.**
+
+---
+
+# Production Evolution Roadmap
+
+GPUFlow-X is being evolved from an adaptive GPU inference scheduler into a
+production-oriented, AI-powered inference platform.
+
+The existing implementation provides the foundation: request scheduling,
+priority queues, dynamic batching, workload and latency prediction,
+self-learning scheduling components, inference backends, device assignment,
+telemetry, an Operations Copilot, a monitoring dashboard, and Docker
+deployment configurations.
+
+The next development effort focuses on connecting these components into
+one reliable, observable, and continuously improving inference platform.
+
+**Development principle:** Improve the existing architecture incrementally.
+Do not rewrite working components unnecessarily. Every integration must be
+tested and evaluated against measurable baselines.
+
+## Production Upgrade Roadmap
+
+| Stage | Work | Priority | Status |
+|---|---|---|---|
+| 1 | Audit existing architecture and identify gaps | First | Initial audit completed; detailed verification ongoing |
+| 2 | Closed-loop AI scheduling | Critical | Planned |
+| 3 | Workload classification | High | Planned |
+| 4 | SLA violation prediction | High | Planned |
+| 5 | Production API security and reliability | Critical | Planned |
+| 6 | GPU resource monitoring and fault handling | High | Planned |
+| 7 | Observability and persistent state | High | Planned |
+| 8 | Deployment and CI/CD improvements | High | Planned |
+| 9 | Final performance evaluation | Critical | Planned |
+
+### Stage 1 — Architecture Audit
+
+The initial architecture review identified several integration opportunities:
+
+- The live FastAPI service currently uses `DynamicBatchScheduler`, while
+  the separate AI scheduling implementation is not yet the live API
+  scheduling path.
+- The latency predictor is exposed through an API endpoint but is not yet
+  integrated into the live scheduling decision loop.
+- Inference results and original request identifiers need to be preserved
+  across the scheduler and inference service.
+- Device information in some scheduler telemetry paths is hardcoded to CPU.
+- Request and telemetry state currently relies on in-memory storage.
+- Queue capacity and overload handling need controlled backpressure.
+- GPU resource management needs richer utilization and memory monitoring.
+
+These findings define the integration and reliability work for the next
+stages. They are not claims that these capabilities have already been
+implemented.
+
+### Stage 2 — Closed-Loop AI Scheduling
+
+Integrate prediction, scheduling, inference execution, and telemetry into
+one feedback-driven scheduling workflow.
+
+Planned work:
+
+- Connect AI scheduling decisions to the live inference API.
+- Integrate latency predictions into batch-size and batch-delay decisions.
+- Use observed execution metrics to evaluate scheduling decisions.
+- Improve adaptive scheduling using measured workload behavior.
+- Persist and validate learned scheduling policies.
+- Provide explanations for scheduling decisions.
+
+**Expected outcome:** Scheduling decisions informed by predictions and
+actual execution feedback rather than isolated prediction endpoints.
+
+### Stage 3 — Workload Classification
+
+Develop workload-aware scheduling so different inference request patterns
+can receive appropriate scheduling treatment.
+
+Planned work:
+
+- Identify latency-sensitive workloads.
+- Identify throughput-oriented workloads.
+- Detect burst and compute-intensive request patterns.
+- Use workload characteristics to influence batching and queue priorities.
+- Evaluate classification accuracy using representative workloads.
+
+**Expected outcome:** Scheduling policies that adapt to workload
+characteristics instead of treating every request identically.
+
+### Stage 4 — SLA Violation Prediction
+
+Introduce SLA-aware risk estimation and deadline protection.
+
+Planned work:
+
+- Estimate whether a request is likely to exceed its latency budget.
+- Consider queue delay, predicted inference time, and remaining deadline.
+- Prioritize requests based on urgency and SLA risk.
+- Measure SLA compliance and violation rates.
+- Evaluate predictions against actual request outcomes.
+
+**Expected outcome:** Earlier detection of potential SLA violations and
+more informed scheduling decisions.
+
+### Stage 5 — Production API Security and Reliability
+
+Strengthen the API layer for reliable service operation.
+
+Planned work:
+
+- Add API-key authentication and access controls.
+- Implement request validation and payload limits.
+- Add queue backpressure and controlled overload responses.
+- Improve exception handling and request lifecycle management.
+- Add health and readiness checks.
+- Support graceful startup and shutdown.
+- Add API and integration tests for failure scenarios.
+
+**Expected outcome:** A more secure and predictable inference API.
+
+### Stage 6 — GPU Resource Monitoring and Fault Handling
+
+Extend device management beyond basic assignment and CPU fallback.
+
+Planned work:
+
+- Monitor GPU utilization and available memory where supported.
+- Track active assignments and device-level workload.
+- Improve device selection using resource availability.
+- Handle unavailable or unhealthy devices.
+- Add configurable CPU fallback behavior.
+- Distinguish real hardware measurements from simulated device metrics.
+
+**Expected outcome:** More reliable device-aware inference execution.
+
+### Stage 7 — Observability and Persistent State
+
+Make inference operations measurable and recoverable.
+
+Planned work:
+
+- Persist request lifecycle information.
+- Introduce configurable telemetry retention.
+- Store scheduler decisions and execution outcomes.
+- Add structured application logs.
+- Expand metrics for latency, throughput, queue depth, failures, and SLA
+  compliance.
+- Improve dashboard visibility into scheduling and resource behavior.
+
+**Expected outcome:** Consistent operational visibility and durable
+inference and telemetry records.
+
+### Stage 8 — Deployment and CI/CD Improvements
+
+Improve repeatability and deployment reliability.
+
+Planned work:
+
+- Improve CPU and CUDA deployment configurations.
+- Add Docker Compose for coordinated service deployment.
+- Introduce automated test and build workflows.
+- Add configuration and environment validation.
+- Document deployment, health checks, and troubleshooting.
+- Validate deployment on supported hardware environments.
+
+**Expected outcome:** Reproducible builds, automated verification, and
+simpler deployment.
+
+### Stage 9 — Final Performance Evaluation
+
+Validate the complete platform using repeatable experiments.
+
+Planned work:
+
+- Compare FIFO, priority, adaptive, and AI-driven scheduling.
+- Evaluate low, medium, burst, and compute-intensive workloads.
+- Measure throughput, average latency, P95/P99 latency, and queue delay.
+- Measure batch efficiency and SLA compliance.
+- Evaluate failure handling and resource utilization.
+- Report CPU and CUDA results separately.
+- Document limitations, experimental methodology, and trade-offs.
+
+**Expected outcome:** Evidence-based performance results and a transparent
+evaluation of where AI scheduling improves performance and where it does
+not.
+
+## Existing Implementation and Production Roadmap
+
+The original development roadmap covers the foundation and implementation
+of the scheduler. The production upgrade roadmap focuses on deeper
+integration, reliability, security, resource awareness, and operational
+readiness.
+
+The presence of an existing component does not mean its production
+integration is complete. Each production stage will be marked complete
+only after implementation, tests, and relevant validation.
+
+## Engineering and Evaluation Principles
+
+- Preserve working functionality and improve incrementally.
+- Prefer modular components with clear responsibilities.
+- Keep CPU execution available as a fallback.
+- Do not report simulated GPU results as physical GPU benchmarks.
+- Measure performance using repeatable experiments.
+- Compare AI scheduling against non-AI baselines.
+- Document known limitations and hardware dependencies.
+- Update this roadmap as implementation and validation progress.
+
