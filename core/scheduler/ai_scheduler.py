@@ -81,6 +81,11 @@ class AIScheduler:
 
         self._metrics_lock = threading.Lock()
 
+        # Request lifecycle and inference-result registry.
+        self._request_lock = threading.RLock()
+        self._requests = {}
+        self._results = {}
+
         self._submitted = 0
         self._completed = 0
         self._failed = 0
@@ -117,11 +122,55 @@ class AIScheduler:
             self._worker.join(timeout=10)
 
     def submit(self, request):
-        """Submit an inference request to the priority queue."""
-        self.queue.enqueue(request)
+        """Register and enqueue a request, returning its original ID."""
+        request_id = request.request_id
+
+        with self._request_lock:
+            if request_id in self._requests:
+                raise ValueError(
+                    f"Duplicate request ID: {request_id}"
+                )
+
+            self._requests[request_id] = request
+            self._results[request_id] = {
+                "output": None,
+                "device": None,
+                "batch_size": None,
+                "batch_inference_time_ms": None,
+                "error": None,
+            }
+
+        try:
+            self.queue.enqueue(request)
+        except Exception:
+            with self._request_lock:
+                self._requests.pop(request_id, None)
+                self._results.pop(request_id, None)
+            raise
 
         with self._metrics_lock:
             self._submitted += 1
+
+        return request_id
+
+    def get_request(self, request_id):
+        """Return request lifecycle data and its inference result."""
+        with self._request_lock:
+            request = self._requests.get(request_id)
+            if request is None:
+                return None
+
+            result = dict(self._results.get(request_id, {}))
+
+        response = {
+            "request_id": request.request_id,
+            "status": request.status,
+            "queue_time_ms": request.queue_time_ms,
+            "inference_time_ms": request.inference_time_ms,
+            "total_latency_ms": request.total_latency_ms,
+        }
+        response.update(result)
+        return response
 
     def _build_state(self):
         """Build workload state from recent completed telemetry."""
@@ -499,8 +548,47 @@ class AIScheduler:
             try:
                 for request in batch.requests:
                     request.mark_started()
-                self.inference_service.infer_batch_object(batch)
-            except Exception:
+                inference_result = (
+                    self.inference_service.infer_batch_object(batch)
+                )
+
+                result_ids = inference_result.get("request_ids", [])
+                outputs = inference_result.get("output", [])
+
+                if (
+                    len(result_ids) != batch.size
+                    or len(outputs) != batch.size
+                    or set(result_ids) != {
+                        request.request_id
+                        for request in batch.requests
+                    }
+                ):
+                    raise RuntimeError(
+                        "Inference result IDs or outputs do not match "
+                        "the submitted batch."
+                    )
+
+                output_by_id = dict(zip(result_ids, outputs))
+
+                with self._request_lock:
+                    for request in batch.requests:
+                        self._results[request.request_id].update({
+                            "output": output_by_id[request.request_id],
+                            "device": inference_result.get("device"),
+                            "batch_size": batch.size,
+                            "batch_inference_time_ms": (
+                                inference_result.get("inference_time_ms")
+                            ),
+                            "error": None,
+                        })
+
+            except Exception as exc:
+                with self._request_lock:
+                    for request in batch.requests:
+                        self._results[request.request_id].update({
+                            "error": str(exc),
+                        })
+
                 for request in batch.requests:
                     if request.status not in ("failed", "completed"):
                         request.mark_failed()

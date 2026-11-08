@@ -42,16 +42,40 @@ class InferenceService:
             backend.load_model(InferenceModel())
             self.backends[device] = backend
 
-    def infer_batch(self, batch_values):
-        """Run a batch on the least-loaded available GPU or CPU."""
+    def infer_batch(self, batch_values, request_ids=None):
+        """
+        Run a batch on the least-loaded available GPU or CPU.
+
+        Original request IDs can be supplied by the scheduler.
+        Existing callers that omit them retain generated UUIDs.
+        """
         if not batch_values:
             raise ValueError("Cannot infer an empty batch.")
+
+        if request_ids is None:
+            request_ids = [
+                str(uuid.uuid4()) for _ in batch_values
+            ]
+        else:
+            request_ids = list(request_ids)
+
+            if len(request_ids) != len(batch_values):
+                raise ValueError(
+                    "The number of request IDs must match "
+                    "the number of batch inputs."
+                )
+
+            if any(not request_id for request_id in request_ids):
+                raise ValueError("Request IDs cannot be empty.")
 
         device = self.device_manager.select_device()
 
         try:
             backend = self.backends[device]
-            inputs = torch.tensor(batch_values, dtype=torch.float32)
+            inputs = torch.tensor(
+                batch_values,
+                dtype=torch.float32
+            )
 
             arrival_time = time.perf_counter()
             result = backend.predict(inputs)
@@ -60,9 +84,7 @@ class InferenceService:
 
             return {
                 "batch_size": len(batch_values),
-                "request_ids": [
-                    str(uuid.uuid4()) for _ in batch_values
-                ],
+                "request_ids": request_ids,
                 "output": outputs,
                 "inference_time_ms": result["latency_ms"],
                 "total_latency_ms": (
@@ -70,22 +92,42 @@ class InferenceService:
                 ) * 1000,
                 "device": result["device"],
             }
+
         finally:
             self.device_manager.release_device(device)
 
     def infer_batch_object(self, batch: InferenceBatch):
-        """Execute an InferenceBatch object."""
+        """Execute an InferenceBatch while preserving request IDs."""
         if batch.is_empty():
             raise ValueError("Cannot execute an empty batch.")
 
-        return self.infer_batch(batch.inputs)
+        request_ids = [
+            request.request_id
+            for request in batch.requests
+        ]
 
-    def infer(self, values, arrival_time=None):
+        return self.infer_batch(
+            batch.inputs,
+            request_ids=request_ids
+        )
+
+    def infer(
+        self,
+        values,
+        arrival_time=None,
+        request_id=None
+    ):
         """Run inference for a single request."""
+
         if arrival_time is None:
             arrival_time = time.perf_counter()
 
-        result = self.infer_batch([values])
+        result = self.infer_batch(
+            [values],
+            request_ids=(
+                [request_id] if request_id is not None else None
+            )
+        )
 
         return {
             "request_id": result["request_ids"][0],

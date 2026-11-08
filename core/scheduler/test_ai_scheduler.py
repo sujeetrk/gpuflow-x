@@ -144,7 +144,17 @@ def test_telemetry_failure_does_not_reclassify_completed_request(tmp_path, monke
 
     class _SuccessfulInference:
         def infer_batch_object(self, batch):
-            return {"ok": True}
+            return {
+                "request_ids": [
+                    request.request_id for request in batch.requests
+                ],
+                "output": [
+                    [0.2, 0.8] for _ in batch.requests
+                ],
+                "device": "cpu",
+                "inference_time_ms": 3.5,
+                "total_latency_ms": 4.0,
+            }
 
     class _OneBatchCollector:
         def __init__(self, scheduler):
@@ -226,53 +236,3 @@ def test_sla_override_is_not_attributed_to_proposed_learning_action(
     }
     assert "learning_action" not in decision
     assert decision["learning_skipped_for_action_override"] is True
-
-
-def test_telemetry_failure_does_not_reclassify_completed_request(
-    tmp_path, monkeypatch
-):
-    from core.batching.batch import InferenceBatch
-
-    class _SuccessfulInference:
-        def infer_batch_object(self, batch):
-            return {"ok": True}
-
-    class _OneBatchCollector:
-        def __init__(self, scheduler):
-            self.scheduler = scheduler
-            self.used = False
-
-        def collect(self):
-            if self.used:
-                return None
-            self.used = True
-            request = self.scheduler.queue.dequeue(timeout=0)
-            self.scheduler._running = False
-            batch = InferenceBatch()
-            batch.add(request)
-            return batch
-
-    scheduler = AIScheduler(
-        inference_service=_SuccessfulInference(),
-        policy=_FixedPolicy(),
-        batch_config=BatchConfig(max_batch_size=1, max_batch_delay_ms=0),
-        learning_enabled=False,
-        policy_path=str(tmp_path / "telemetry-policy.json"),
-    )
-    request = InferenceRequest(values=[1.0])
-    scheduler.submit(request)
-    scheduler.collector = _OneBatchCollector(scheduler)
-    monkeypatch.setattr(
-        scheduler,
-        "_record_telemetry",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            RuntimeError("telemetry sink down")
-        ),
-    )
-    scheduler._running = True
-    scheduler._worker_loop()
-
-    metrics = scheduler.metrics()
-    assert request.status == "completed"
-    assert metrics["requests_completed"] == 1
-    assert metrics["requests_failed"] == 0

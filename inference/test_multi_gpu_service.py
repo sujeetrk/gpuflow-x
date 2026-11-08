@@ -79,3 +79,26 @@ def test_inference_output_shape_with_simulated_gpu():
     assert result["batch_size"] == 3
     assert len(result["output"]) == 3
     assert result["device"].startswith("cuda:")
+
+
+def test_inference_batch_object_preserves_original_request_ids():
+    from core.batching.batch import InferenceBatch
+    from core.queue.request import InferenceRequest
+
+    service = make_multi_gpu_service()
+
+    first = InferenceRequest(values=[0.1] * 10)
+    second = InferenceRequest(values=[0.2] * 10)
+
+    batch = InferenceBatch(requests=[first, second])
+
+    result = service.infer_batch_object(batch)
+
+    assert result["request_ids"] == [
+        first.request_id,
+        second.request_id,
+    ]
+
+    assert len(result["output"]) == 2
+    assert result["batch_size"] == 2
+    assert result["device"] in ("cuda:0", "cuda:1")
