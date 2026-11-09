@@ -328,6 +328,23 @@ class AIScheduler:
             decision["policy_bypassed_for_backlog"] = False
             decision["policy_bypassed_for_deadline"] = False
 
+        # Ensure workload classification is available even when the
+        # scheduler bypasses the AI policy for deadline or backlog safety.
+        if "workload_class" not in decision:
+            classifier = getattr(self.policy, "classifier", None)
+            classify = getattr(classifier, "classify", None)
+
+            if callable(classify):
+                classification = classify(
+                    state,
+                    target_latency_ms=getattr(
+                        self.policy,
+                        "target_latency_ms",
+                        200.0,
+                    ),
+                )
+                decision.update(classification)
+
         # Self-learning is useful for ordinary/light traffic, but must not
         # undo a deadline-drain or backlog-throughput safety decision.
         can_learn_action = (
