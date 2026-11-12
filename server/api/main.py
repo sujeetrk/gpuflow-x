@@ -15,6 +15,7 @@ from ai.ops_copilot.copilot import AIOpsCopilot
 from core.queue.request import InferenceRequest
 from core.scheduler.ai_scheduler import AIScheduler
 from inference.service import InferenceService
+from inference.gpu_monitor import GPUHealthMonitor
 
 
 # ---------------------------------------------------------
@@ -365,3 +366,15 @@ def get_ops_copilot_decision():
             metrics.get("last_ai_decision")
         ),
     }
+
+# ---------------------------------------------------------
+# GPU Health Monitoring
+# ---------------------------------------------------------
+
+@app.get("/gpu/health")
+def get_gpu_health():
+    """Return GPU availability, device assignments, and memory health."""
+    monitor = GPUHealthMonitor(
+        scheduler.inference_service.device_manager
+    )
+    return monitor.snapshot()

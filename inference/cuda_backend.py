@@ -7,6 +7,10 @@ import torch
 from inference.backend import InferenceBackend
 
 
+class GPUInferenceError(RuntimeError):
+    """Raised when execution on a CUDA device fails."""
+
+
 class CUDABackend(InferenceBackend):
     """Run model inference on a specific CUDA device."""
 
@@ -25,14 +29,21 @@ class CUDABackend(InferenceBackend):
         if self.model is None:
             raise RuntimeError("Model is not loaded.")
 
-        inputs = inputs.to(self._device)
         start = time.perf_counter()
 
-        with torch.no_grad():
-            output = self.model(inputs)
+        try:
+            inputs = inputs.to(self._device)
 
-        # Ensure GPU work is complete before measuring latency.
-        torch.cuda.synchronize(self._device)
+            with torch.no_grad():
+                output = self.model(inputs)
+
+            # Ensure GPU work is complete before measuring latency.
+            torch.cuda.synchronize(self._device)
+
+        except RuntimeError as exc:
+            raise GPUInferenceError(
+                f"Inference failed on {self._device}: {exc}"
+            ) from exc
 
         latency_ms = (time.perf_counter() - start) * 1000
 

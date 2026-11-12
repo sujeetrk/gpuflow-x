@@ -7,7 +7,7 @@ import torch.nn as nn
 from core.batching.batch import InferenceBatch
 from core.scheduler.device_manager import GPUDeviceManager
 from inference.cpu_backend import CPUBackend
-from inference.cuda_backend import CUDABackend
+from inference.cuda_backend import CUDABackend, GPUInferenceError
 
 
 class InferenceModel(nn.Module):
@@ -43,12 +43,7 @@ class InferenceService:
             self.backends[device] = backend
 
     def infer_batch(self, batch_values, request_ids=None):
-        """
-        Run a batch on the least-loaded available GPU or CPU.
-
-        Original request IDs can be supplied by the scheduler.
-        Existing callers that omit them retain generated UUIDs.
-        """
+        """Run a batch, retrying on CPU after a CUDA execution failure."""
         if not batch_values:
             raise ValueError("Cannot infer an empty batch.")
 
@@ -68,17 +63,25 @@ class InferenceService:
             if any(not request_id for request_id in request_ids):
                 raise ValueError("Request IDs cannot be empty.")
 
+        # Validate inputs before selecting or quarantining any GPU.
+        inputs = torch.tensor(batch_values, dtype=torch.float32)
+        start_time = time.perf_counter()
         device = self.device_manager.select_device()
 
         try:
             backend = self.backends[device]
-            inputs = torch.tensor(
-                batch_values,
-                dtype=torch.float32
-            )
 
-            arrival_time = time.perf_counter()
-            result = backend.predict(inputs)
+            try:
+                result = backend.predict(inputs)
+            except GPUInferenceError as exc:
+                if device == "cpu":
+                    raise
+
+                self.device_manager.mark_unhealthy(device, str(exc))
+
+                # Retry the same inputs using the existing CPU backend.
+                result = self.backends["cpu"].predict(inputs)
+
             outputs = result["output"].cpu().tolist()
             end_time = time.perf_counter()
 
@@ -88,7 +91,7 @@ class InferenceService:
                 "output": outputs,
                 "inference_time_ms": result["latency_ms"],
                 "total_latency_ms": (
-                    end_time - arrival_time
+                    end_time - start_time
                 ) * 1000,
                 "device": result["device"],
             }
