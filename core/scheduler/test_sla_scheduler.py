@@ -175,3 +175,100 @@ def test_backlog_uses_batch_capacity_without_running_expensive_policy(tmp_path):
     assert decision["batch_size"] == 4
     assert decision["batch_delay_ms"] == 0.0
     assert decision["policy_bypassed_for_backlog"] is True
+
+
+class FixedLatencyPolicy:
+    def __init__(self, predicted_latency_ms):
+        self.predicted_latency_ms = predicted_latency_ms
+
+    def decide(self, state):
+        return {
+            "batch_size": 2,
+            "batch_delay_ms": 5.0,
+            "ai_reason": "test_sla_risk",
+            "predicted_latency_ms": self.predicted_latency_ms,
+        }
+
+
+def test_scheduler_reports_high_sla_risk(tmp_path):
+    scheduler = AIScheduler(
+        inference_service=InferenceService(),
+        policy=FixedLatencyPolicy(90.0),
+        batch_config=BatchConfig(
+            max_batch_size=8,
+            max_batch_delay_ms=20,
+        ),
+        learning_enabled=False,
+        policy_path=str(tmp_path / "risk-policy.json"),
+        deadline_guard_ms=1.0,
+    )
+
+    request = InferenceRequest(
+        values=[1.0],
+        deadline_time=time.perf_counter() + 100.0 / 1000,
+    )
+    scheduler.submit(request)
+
+    _, decision = scheduler._apply_policy()
+
+    assert decision["sla_risk_level"] == "high"
+    assert decision["sla_risk_score"] >= 0.8
+    assert decision["sla_predicted_violation"] is False
+    assert decision["sla_remaining_ms"] > 0
+    assert decision["sla_predicted_latency_ms"] == 90.0
+
+
+def test_scheduler_reports_critical_risk_for_expired_sla(tmp_path):
+    scheduler = create_scheduler(tmp_path)
+
+    request = InferenceRequest(
+        values=[1.0],
+        deadline_time=time.perf_counter() - 1.0,
+    )
+    scheduler.submit(request)
+
+    _, decision = scheduler._apply_policy()
+
+    assert decision["sla_risk_level"] == "critical"
+    assert decision["sla_risk_score"] == 1.0
+    assert decision["sla_predicted_violation"] is True
+    assert decision["sla_risk_ratio"] == 1.0
+
+
+def test_scheduler_marks_risk_not_applicable_without_deadline(tmp_path):
+    scheduler = create_scheduler(tmp_path)
+
+    scheduler.submit(InferenceRequest(values=[1.0]))
+
+    _, decision = scheduler._apply_policy()
+
+    assert decision["sla_risk_level"] == "not_applicable"
+    assert decision["sla_risk_score"] is None
+    assert decision["sla_predicted_violation"] is None
+
+
+def test_sla_risk_does_not_change_scheduling_action(tmp_path):
+    scheduler = AIScheduler(
+        inference_service=InferenceService(),
+        policy=FixedLatencyPolicy(90.0),
+        batch_config=BatchConfig(
+            max_batch_size=8,
+            max_batch_delay_ms=20,
+        ),
+        learning_enabled=False,
+        policy_path=str(tmp_path / "risk-action-policy.json"),
+        deadline_guard_ms=1.0,
+    )
+
+    scheduler.submit(
+        InferenceRequest(
+            values=[1.0],
+            deadline_time=time.perf_counter() + 100.0 / 1000,
+        )
+    )
+
+    _, decision = scheduler._apply_policy()
+
+    assert decision["sla_risk_level"] == "high"
+    assert decision["batch_size"] == decision["effective_action"]["batch_size"]
+    assert decision["batch_delay_ms"] == decision["effective_action"]["batch_delay_ms"]

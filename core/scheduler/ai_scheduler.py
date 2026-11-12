@@ -13,6 +13,7 @@ from core.queue.request_queue import RequestQueue
 from core.policy.state import WorkloadState
 from core.telemetry.collector import TelemetryCollector
 from core.telemetry.event import TelemetryEvent
+from ai.sla_predictor.predictor import SLAViolationPredictor
 from inference.service import InferenceService
 
 
@@ -33,6 +34,7 @@ class AIScheduler:
         learning_enabled=True,
         policy_path="gpu_flow_policy.json",
         deadline_guard_ms=1.0,
+        sla_predictor=None,
     ):
         if deadline_guard_ms < 0:
             raise ValueError(
@@ -71,6 +73,11 @@ class AIScheduler:
         self.learning_enabled = learning_enabled
         self.learning_agent = LearningAgent()
         self.deadline_guard_ms = deadline_guard_ms
+        self.sla_predictor = (
+            sla_predictor
+            if sla_predictor is not None
+            else SLAViolationPredictor()
+        )
 
         self.policy_storage = PolicyStorage(policy_path)
 
@@ -416,6 +423,12 @@ class AIScheduler:
                 decision.pop("learning_action", None)
                 decision["learning_skipped_for_action_override"] = True
 
+        self._attach_sla_risk(
+            decision=decision,
+            state=state,
+            remaining_sla_ms=deadline_pressure_ms,
+        )
+
         self.batch_config.max_batch_size = decision["batch_size"]
         self.batch_config.max_batch_delay_ms = decision["batch_delay_ms"]
         self.collector.max_batch_size = decision["batch_size"]
@@ -423,6 +436,41 @@ class AIScheduler:
         self._last_decision = decision
 
         return state, decision
+
+    def _attach_sla_risk(self, decision, state, remaining_sla_ms):
+        """Attach SLA violation risk without changing scheduling actions."""
+        if remaining_sla_ms is None:
+            decision.update({
+                "sla_remaining_ms": None,
+                "sla_predicted_latency_ms": None,
+                "sla_risk_ratio": None,
+                "sla_risk_score": None,
+                "sla_risk_level": "not_applicable",
+                "sla_predicted_violation": None,
+            })
+            return
+
+        predicted_latency = decision.get("predicted_latency_ms")
+        if predicted_latency is None or float(predicted_latency) <= 0:
+            predicted_latency = max(
+                float(state.average_latency_ms),
+                float(state.average_inference_time_ms),
+                0.0,
+            )
+
+        risk = self.sla_predictor.predict(
+            remaining_sla_ms=remaining_sla_ms,
+            predicted_latency_ms=predicted_latency,
+        )
+
+        decision.update({
+            "sla_remaining_ms": risk["remaining_sla_ms"],
+            "sla_predicted_latency_ms": risk["predicted_latency_ms"],
+            "sla_risk_ratio": risk["risk_ratio"],
+            "sla_risk_score": risk["risk_score"],
+            "sla_risk_level": risk["risk_level"],
+            "sla_predicted_violation": risk["predicted_violation"],
+        })
 
     def _record_telemetry(self, request, batch_size, device='unknown'):
         """Record request timing and deadline misses."""

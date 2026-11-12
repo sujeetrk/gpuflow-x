@@ -33,7 +33,6 @@ latency_predictor = LatencyPredictor()
 ops_copilot = AIOpsCopilot()
 
 
-
 # ---------------------------------------------------------
 # API Request Models
 # ---------------------------------------------------------
@@ -43,6 +42,14 @@ class InferenceAPIRequest(BaseModel):
         ...,
         min_length=10,
         max_length=10,
+    )
+
+    # Optional SLA budget in milliseconds.
+    # Must be positive and finite when provided.
+    sla_budget_ms: float | None = Field(
+        default=None,
+        gt=0,
+        allow_inf_nan=False,
     )
 
 
@@ -93,7 +100,8 @@ def health():
 def infer(request: InferenceAPIRequest):
 
     inference_request = InferenceRequest(
-        values=request.values
+        values=request.values,
+        sla_budget_ms=request.sla_budget_ms,
     )
 
     try:
@@ -151,21 +159,18 @@ def predict_latency(
 ):
 
     if batch_size < 1:
-
         raise HTTPException(
             status_code=400,
             detail="batch_size must be at least 1.",
         )
 
     if batch_delay_ms < 0:
-
         raise HTTPException(
             status_code=400,
             detail="batch_delay_ms cannot be negative.",
         )
 
     if request_count < 1:
-
         raise HTTPException(
             status_code=400,
             detail="request_count must be at least 1.",
