@@ -1,0 +1,43 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile
+    image: gpuflow-x:cpu
+    container_name: gpuflow-x-api
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - gpuflow-data:/app/data
+    restart: unless-stopped
+    init: true
+
+  api-cuda:
+    profiles:
+      - cuda
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.cuda
+    image: gpuflow-x:cuda
+    container_name: gpuflow-x-api-cuda
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - gpuflow-data-cuda:/app/data
+    restart: unless-stopped
+    init: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  gpuflow-data:
+  gpuflow-data-cuda:

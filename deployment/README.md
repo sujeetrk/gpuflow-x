@@ -1,104 +1,111 @@
 # GPUFlow-X Deployment
 
-GPUFlow-X provides separate CPU and NVIDIA CUDA container configurations.
+GPUFlow-X supports CPU deployment and optional NVIDIA CUDA deployment.
 
-## CPU Deployment
+## Requirements
 
-Build the CPU image:
+- Docker Engine or Docker Desktop with Docker Compose.
+- For GPU deployment: NVIDIA GPU, NVIDIA drivers, and NVIDIA Container Toolkit.
 
-    docker build -f deployment/Dockerfile -t gpuflow-x:phase13 .
+## CPU deployment
 
-Run the API:
+Build and start:
 
-    docker run -d --name gpuflow-x-api -p 8000:8000 gpuflow-x:phase13
+    docker compose up --build -d api
 
-Health check:
+Check health:
 
-    curl http://127.0.0.1:8000/health
+    curl http://localhost:8000/health
 
-Metrics:
+Check metrics:
 
-    curl http://127.0.0.1:8000/metrics
+    curl http://localhost:8000/metrics
 
-Inference:
+Submit inference:
 
-    curl -X POST http://127.0.0.1:8000/infer \
+    curl -X POST http://localhost:8000/infer \
       -H "Content-Type: application/json" \
       -d '{"values":[0,1,2,3,4,5,6,7,8,9]}'
 
-Stop the container:
+View logs:
 
-    docker rm -f gpuflow-x-api
+    docker compose logs -f api
 
-## NVIDIA CUDA Deployment
+Stop:
 
-The CUDA deployment uses:
+    docker compose down
 
-- NVIDIA CUDA 12.6 runtime
-- PyTorch 2.14.0+cu126
-- FastAPI
-- Uvicorn
-- GPUFlow-X scheduler and inference stack
+The SQLite telemetry database is stored in the persistent
+gpuflow-data Docker volume mounted at /app/data.
 
-Build the CUDA image:
+## NVIDIA CUDA deployment
+
+Build and start the CUDA service:
+
+    docker compose --profile cuda up --build -d api-cuda
+
+Check health:
+
+    curl http://localhost:8000/health
+
+Verify CUDA inside the container:
+
+    docker compose exec api-cuda python3 -c \
+      "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available()); print(torch.cuda.device_count())"
+
+CUDA execution requires compatible NVIDIA hardware and the NVIDIA
+Container Toolkit.
+
+Stop:
+
+    docker compose --profile cuda down
+
+## Direct Docker builds
+
+CPU:
+
+    docker build -f deployment/Dockerfile -t gpuflow-x:cpu .
+
+CUDA:
 
     docker build -f deployment/Dockerfile.cuda -t gpuflow-x:cuda .
 
-On an NVIDIA GPU machine with the NVIDIA Container Toolkit installed:
+## Health monitoring
 
-    docker run -d \
-      --gpus all \
-      --name gpuflow-x-api \
-      -p 8000:8000 \
-      gpuflow-x:cuda
+Both images define Docker health checks against:
 
-Verify the container:
+    http://127.0.0.1:8000/health
 
-    docker logs gpuflow-x-api
+The API also exposes:
 
-Check the API:
+- /health
+- /gpu/health
+- /metrics
 
-    curl http://127.0.0.1:8000/health
+## Continuous integration
 
-Check inference:
+GitHub Actions runs the Python test suite and builds the CPU Docker image
+on pushes and pull requests targeting main.
 
-    curl -X POST http://127.0.0.1:8000/infer \
-      -H "Content-Type: application/json" \
-      -d '{"values":[0,1,2,3,4,5,6,7,8,9]}'
+CUDA image execution requires a suitable NVIDIA-enabled runner and is
+not part of the standard CPU CI job.
 
-## GPU Verification
+## Deployment files
 
-Inside an NVIDIA-enabled container:
+- Dockerfile: CPU image.
+- Dockerfile.cuda: NVIDIA CUDA image.
+- requirements-cuda.txt: CUDA dependencies.
+- docker-compose.yml: CPU and CUDA deployment services.
+- .dockerignore: root Docker build exclusions.
+- .github/workflows/ci.yml: automated CI pipeline.
 
-    docker exec gpuflow-x-api python3 -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available()); print(torch.cuda.device_count())"
+## Validation status
 
-Expected GPU deployment behavior:
+YAML configuration and deployment-file checks have been performed
+in the development environment.
 
-    torch: 2.14.0+cu126
-    CUDA: 12.6
-    CUDA available: True
-    CUDA device count: >= 1
+Docker image builds and container health checks must be executed
+on a machine with Docker installed.
 
-## Validation Performed on Development Machine
-
-The following were validated locally:
-
-- CPU Docker image build
-- CPU container startup
-- FastAPI health endpoint
-- Metrics endpoint
-- Inference endpoint
-- Scheduler execution inside container
-- Telemetry generation inside container
-- CUDA Docker image build
-- CUDA-enabled PyTorch installation
-- CUDA 12.6 runtime presence
-
-The development laptop does not contain an NVIDIA GPU. Therefore, physical NVIDIA GPU execution and `torch.cuda.is_available() == True` were not claimed as locally validated.
-
-## Deployment Files
-
-- Dockerfile — CPU deployment
-- Dockerfile.cuda — NVIDIA CUDA deployment
-- requirements-cuda.txt — CUDA-specific Python dependencies
-- .dockerignore — Docker build exclusions
+Physical NVIDIA GPU execution must be verified on an NVIDIA-enabled
+machine. CPU-only environments cannot establish GPU execution.

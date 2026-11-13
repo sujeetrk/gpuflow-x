@@ -1,0 +1,28 @@
+# Python environments and caches
+.venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Git and local configuration
+.git/
+.env
+.env.*
+
+# Runtime data and logs
+data/
+logs/
+*.db
+*.log
+
+# Local build artifacts
+build/
+cmake-build-*/
+dashboard/node_modules/
+dashboard/dist/
+
+# Backups and temporary files
+*.bak
+*.before_*
+*.backup
+*.telemetry_backup
