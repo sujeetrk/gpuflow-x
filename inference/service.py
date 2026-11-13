@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 
@@ -8,6 +9,9 @@ from core.batching.batch import InferenceBatch
 from core.scheduler.device_manager import GPUDeviceManager
 from inference.cpu_backend import CPUBackend
 from inference.cuda_backend import CUDABackend, GPUInferenceError
+
+
+logger = logging.getLogger(__name__)
 
 
 class InferenceModel(nn.Module):
@@ -68,6 +72,8 @@ class InferenceService:
         start_time = time.perf_counter()
         device = self.device_manager.select_device()
 
+        cpu_fallback = False
+
         try:
             backend = self.backends[device]
 
@@ -79,8 +85,19 @@ class InferenceService:
 
                 self.device_manager.mark_unhealthy(device, str(exc))
 
+                logger.warning(
+                    "GPU inference failed; retrying batch on CPU",
+                    extra={
+                        "device": device,
+                        "batch_size": len(batch_values),
+                        "request_ids": request_ids,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+
                 # Retry the same inputs using the existing CPU backend.
                 result = self.backends["cpu"].predict(inputs)
+                cpu_fallback = True
 
             outputs = result["output"].cpu().tolist()
             end_time = time.perf_counter()
@@ -94,6 +111,7 @@ class InferenceService:
                     end_time - start_time
                 ) * 1000,
                 "device": result["device"],
+                "cpu_fallback": cpu_fallback,
             }
 
         finally:

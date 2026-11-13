@@ -1,3 +1,4 @@
+import logging
 import math
 import threading
 import time
@@ -16,6 +17,9 @@ from core.queue.request import InferenceRequest
 from core.scheduler.ai_scheduler import AIScheduler
 from inference.service import InferenceService
 from inference.gpu_monitor import GPUHealthMonitor
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------
@@ -105,6 +109,7 @@ scheduler = AIScheduler(
     inference_service=inference_service,
     max_queue_size=100,
     learning_enabled=True,
+    telemetry_storage_path="data/gpuflow_telemetry.db",
 )
 
 latency_predictor = LatencyPredictor()
@@ -201,11 +206,13 @@ class InferenceAPIRequest(BaseModel):
 @app.on_event("startup")
 def startup():
     scheduler.start()
+    logger.info("GPUFlow-X API started")
 
 
 @app.on_event("shutdown")
 def shutdown():
     scheduler.stop()
+    logger.info("GPUFlow-X API stopped")
 
 
 # ---------------------------------------------------------

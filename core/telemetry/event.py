@@ -24,3 +24,5 @@ class TelemetryEvent:
     status: str
 
     device: str
+    sla_violated: bool = False
+    cpu_fallback: bool = False

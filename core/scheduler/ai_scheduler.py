@@ -1,5 +1,6 @@
 
 import time
+import logging
 import threading
 from pathlib import Path
 
@@ -12,9 +13,14 @@ from core.policy.self_learning import SchedulingAction
 from core.queue.request_queue import RequestQueue
 from core.policy.state import WorkloadState
 from core.telemetry.collector import TelemetryCollector
+from core.telemetry.storage import TelemetryStorage
 from core.telemetry.event import TelemetryEvent
+from core.telemetry.aggregator import MetricsAggregator
 from ai.sla_predictor.predictor import SLAViolationPredictor
 from inference.service import InferenceService
+
+
+logger = logging.getLogger(__name__)
 
 
 class AIScheduler:
@@ -35,6 +41,7 @@ class AIScheduler:
         policy_path="gpu_flow_policy.json",
         deadline_guard_ms=1.0,
         sla_predictor=None,
+        telemetry_storage_path=None,
     ):
         if deadline_guard_ms < 0:
             raise ValueError(
@@ -81,7 +88,12 @@ class AIScheduler:
 
         self.policy_storage = PolicyStorage(policy_path)
 
-        self.telemetry = TelemetryCollector()
+        telemetry_storage = (
+            TelemetryStorage(telemetry_storage_path)
+            if telemetry_storage_path is not None
+            else None
+        )
+        self.telemetry = TelemetryCollector(storage=telemetry_storage)
 
         self._running = False
         self._worker = None
@@ -124,6 +136,7 @@ class AIScheduler:
             daemon=True,
         )
         self._worker.start()
+        logger.info("GPUFlow-X scheduler started")
 
     def stop(self):
         """Stop the worker after queued requests are handled."""
@@ -131,6 +144,8 @@ class AIScheduler:
 
         if self._worker is not None:
             self._worker.join(timeout=10)
+
+        logger.info("GPUFlow-X scheduler stopped")
 
     def submit(self, request):
         """Register and enqueue a request, returning its original ID."""
@@ -169,7 +184,21 @@ class AIScheduler:
         with self._request_lock:
             request = self._requests.get(request_id)
             if request is None:
-                return None
+                event = self.telemetry.get_event(request_id)
+                if event is None:
+                    return None
+
+                return {
+                    "request_id": event.request_id,
+                    "status": event.status,
+                    "queue_time_ms": event.queue_time_ms,
+                    "inference_time_ms": event.inference_time_ms,
+                    "total_latency_ms": event.total_latency_ms,
+                    "device": event.device,
+                    "sla_violated": event.sla_violated,
+                    "historical": True,
+                    "result_available": False,
+                }
 
             result = dict(self._results.get(request_id, {}))
 
@@ -472,7 +501,9 @@ class AIScheduler:
             "sla_predicted_violation": risk["predicted_violation"],
         })
 
-    def _record_telemetry(self, request, batch_size, device='unknown'):
+    def _record_telemetry(
+        self, request, batch_size, device='unknown', cpu_fallback=False
+    ):
         """Record request timing and deadline misses."""
         event = TelemetryEvent(
             request_id=request.request_id,
@@ -486,9 +517,40 @@ class AIScheduler:
             batch_size=batch_size,
             status=request.status,
             device=device,
+            sla_violated=request.deadline_missed,
+            cpu_fallback=cpu_fallback,
         )
 
         self.telemetry.record(event)
+
+        log_data = {
+            "request_id": request.request_id,
+            "status": request.status,
+            "device": device,
+            "batch_size": batch_size,
+            "total_latency_ms": request.total_latency_ms,
+        }
+
+        if request.status == "failed":
+            logger.warning(
+                "Inference request failed",
+                extra=log_data,
+            )
+        else:
+            logger.info(
+                "Inference request completed",
+                extra=log_data,
+            )
+
+        if request.deadline_missed:
+            logger.warning(
+                "Inference request exceeded its SLA deadline",
+                extra={
+                    "request_id": request.request_id,
+                    "sla_budget_ms": request.sla_budget_ms,
+                    "total_latency_ms": request.total_latency_ms,
+                },
+            )
 
         if request.deadline_missed:
             with self._metrics_lock:
@@ -673,7 +735,12 @@ class AIScheduler:
                     try:
                         self._record_telemetry(request, batch.size)
                     except Exception:
-                        pass
+                        logger.exception(
+                            "Failed to persist failed-request telemetry",
+                            extra={
+                                "request_id": request.request_id,
+                            },
+                        )
 
                 with self._metrics_lock:
                     self._failed += sum(
@@ -696,9 +763,18 @@ class AIScheduler:
                         request,
                         batch.size,
                         device=inference_result.get("device") or "unknown",
+                        cpu_fallback=inference_result.get(
+                            "cpu_fallback", False
+                        ),
                     )
                 except Exception:
                     # A telemetry sink failure must not change request status.
+                    logger.exception(
+                        "Failed to persist request telemetry",
+                        extra={
+                            "request_id": request.request_id,
+                        },
+                    )
                     continue
 
             try:
@@ -713,9 +789,9 @@ class AIScheduler:
                 pass
 
     def metrics(self):
-        """Return scheduler metrics and most recent AI decision."""
+        """Return scheduler metrics and persistent telemetry aggregates."""
         with self._metrics_lock:
-            return {
+            metrics = {
                 "requests_submitted": self._submitted,
                 "requests_completed": self._completed,
                 "requests_failed": self._failed,
@@ -732,3 +808,8 @@ class AIScheduler:
                 ),
                 "queue_length": self.queue.size(),
             }
+
+        metrics.update(
+            MetricsAggregator(self.telemetry.get_events()).calculate()
+        )
+        return metrics
